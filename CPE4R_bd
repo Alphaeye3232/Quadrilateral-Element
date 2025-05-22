@@ -1,0 +1,372 @@
+Clear["`*"];
+ch[gh_] := Module[{}, {gh[[1, 1]], gh[[2, 2]], 2 gh[[1, 2]]}];
+chb[gh_] := Module[{}, {{gh[[1]], gh[[3]]/2}, {gh[[3]]/2, gh[[2]]}}];
+chsb[gh_] := Module[{}, {{gh[[1]], gh[[3]]}, {gh[[3]], gh[[2]]}}];
+chs[gh_] := Module[{}, {gh[[1, 1]], gh[[2, 2]], gh[[1, 2]]}];
+ch3[gh_] := 
+  Module[{}, {gh[[1, 1]], gh[[2, 2]], gh[[3, 3]], 2 gh[[1, 2]]}];
+chb3[gh_] := 
+  Module[{}, {{gh[[1]], gh[[4]]/2, 0}, {gh[[4]]/2, gh[[2]], 0}, {0, 0,
+      gh[[3]]}}];
+chsb3[gh_] := 
+  Module[{}, {{gh[[1]], gh[[4]], 0}, {gh[[4]], gh[[2]], 0}, {0, 0, 
+     gh[[3]]}}];
+chs3[gh_] := 
+  Module[{}, {gh[[1, 1]], gh[[2, 2]], gh[[3, 3]], gh[[1, 2]]}];
+divM[gb_] := Module[{},
+   ingb = Inverse[gb];
+   ingbdgb = 
+    Table[(-ingb)[[i, j]]*ingb[[k, l]], {j, 2}, {k, 2}, {i, 2}, {l, 
+      2}];
+   Return[ingbdgb];
+   ];
+xy0 = {{0, 0.5}, {0, 0}, {1, 0}, {1, 1}};
+uv0 = {{0.05, 0}, {0, 0}, {0, 0}, {0, 0}};
+(*xy0={{0, 1}, {0,0}, {1,0}, {1, 1}};
+uv0 ={{0.05,0},{0.05,0},{-0.05,0},{-0.05,0}};*)
+\[Delta]uv = {{0, 0}, {0.0000001, 0}, {0, 0}, {0, 0}};
+lc = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+Do[NN[i] = (1 + lc[[i, 1]]*kk[1])*(1 + lc[[i, 2]]*kk[2])/4, {i, 4}];
+NN1 = Table[NN[i], {i, 4}];
+poly = {1, x, y, kk[1] kk[2]};
+thick = 1;
+
+duv = Table[{du[i], dv[i]}, {i, 4}];
+E0 = 3000;
+mu = 0.3;
+D0 = E0/(1 + mu)/(1 - 2 mu);
+Dek = D0 ({
+     {1 - mu, mu, 0},
+     {mu, 1 - mu, 0},
+     {0, 0, (1 - 2 mu)/2}
+    });
+Dek2 = D0 ({
+     {1 - mu, mu, mu, 0},
+     {mu, 1 - mu, mu, 0},
+     {mu, mu, 1 - mu, 0},
+     {0, 0, 0, (1 - 2 mu)/2}
+    });
+
+FH0 = Integrate[1, {kk[1], -1, 1}, {kk[2], -1, 1}];
+FH1 = Integrate[kk[1], {kk[1], -1, 1}, {kk[2], -1, 1}];
+FH11 = Integrate[kk[2], {kk[1], -1, 1}, {kk[2], -1, 1}];
+FH2 = Integrate[kk[1]*kk[2], {kk[1], -1, 1}, {kk[2], -1, 1}];
+FH22 = Integrate[kk[1]^2, {kk[1], -1, 1}, {kk[2], -1, 1}];
+FH3 = Integrate[kk[2]^2, {kk[1], -1, 1}, {kk[2], -1, 1}];
+Hlist = {FH0, FH1, FH11, FH2, FH22, FH3};
+
+check[xy0_, k_] := Module[{xy, subskk},
+   subskk = Table[kk[i] -> k[[i]], {i, 2}]; 
+   xy =  Sum[NN[i] * xy0[[i]], {i, Length[xy0]}] /. subskk;
+   Return[Flatten[{x -> xy[[1]], y -> xy[[2]], subskk}]];
+   ];
+
+cpe4R[xy0_, uv0_, leu_, ep0_, peeq0_] := 
+  Module[{uv, coef, X, Xl, dV, coefdu, subsu, dU}, 
+   subsu = 
+    Flatten[Table[duv[[i, j]] -> uv0[[i, j]], {i, 4}, {j, 2}]];
+   X = Sum[NN[i] * xy0[[i]], {i, 4}];
+   subsPoly = 
+    Table[Flatten[{x -> xy0[[i, 1]] + duv[[i, 1]]/2, 
+       y -> xy0[[i, 2]] + duv[[i, 2]]/2, 
+       Table[kk[j] -> lc[[i, j]], {j, 2}]}], {i, 4}];
+   (*Do[U[i] = Table[duv[[j, i]], {j,4}], {i,2}];*)
+   U1 = Table[duv[[j, i]], {j, 4}, {i, 2}];
+   dU1 = 
+    Table[D[U1[[i, j]], Flatten[U1][[m]]], {m, 8}, {i, 4}, {j, 2}];
+   coefdU = Inverse[Table[poly /. subsPoly[[i]], {i, 4}]];
+   dcoefdU1 = 
+    Table[D[coefdU[[i, j]], Flatten[U1][[m]]], {m, 8}, {i, 4}, {j, 4}];
+   
+   coef = 
+    Table[Sum[coefdU[[i, j]]*U1[[j, k]], {j, 4}], {k, 2}, {i, 4}] /. 
+     subsu;
+   (*[2,4]*)
+   coefdu = 
+    Table[Sum[coefdU[[i, j]]*dU1[[m, j, k]], {j, 4}], {m, 8}, {k, 
+        2}, {i, 4}] + 
+      Table[Sum[dcoefdU1[[m, i, j]]*U1[[j, k]], {j, 4}], {m, 8}, {k, 
+        2}, {i, 4}] /. subsu;
+   dNNdkk1 = D[NN1, kk[1]];
+   dNNdkk2 = D[NN1, kk[2]];
+   dNNdkk = {dNNdkk1, dNNdkk2} /. check[xy0, {0, 0}];
+   Xl = {{Sum[dNNdkk1[[i]]*xy0[[i, 1]], {i, 4}], 
+       Sum[dNNdkk1[[i]]*xy0[[i, 2]], {i, 4}]}, {Sum[
+        dNNdkk2[[i]]*xy0[[i, 1]], {i, 4}], 
+       Sum[dNNdkk2[[i]]*xy0[[i, 2]], {i, 4}]}} /. check[xy0, {0, 0}];
+   
+   lXdown = Det[Xl];
+   lX = Inverse[Xl];
+   polydx1 = Table[D[poly[[i]], poly[[j]]], {i, 4}, {j, 2, 3}];
+   polydkk = Table[D[poly[[i]], kk[j]], {i, 4}, {j, 2}];
+   polydx2 = polydkk . lX;
+   polydx = polydx1 + polydx2;(*[4,2*)
+   ux = Table[
+      Sum[coef[[i, j]]*polydx[[j, k]], {j, 4}], {i, 2}, {k, 2}] /. 
+     check[xy0, {0, 0}];
+   uxdu = 
+    Table[Sum[coefdu[[m, i, j]]*polydx[[j, k]], {j, 4}], {m, 8}, {i, 
+       2}, {k, 2}] /. check[xy0, {0, 0}];
+   (*[8,2,2]*)
+   is = Simplify[(ux + ux\[Transpose]) / 2];
+   iw = Simplify[(ux - ux\[Transpose]) / 2];
+   isdu = 
+    Table[Simplify[uxdu[[i]] + (uxdu[[i]])\[Transpose]], {i, 8}] / 
+     2 ;
+   iwdu = 
+    Table[Simplify[uxdu[[i]] - (uxdu[[i]])\[Transpose]], {i, 8}] / 
+     2 ;(*[8,2,2]*)
+   ism = {{is[[1, 1]], is[[1, 2]], 0}, {is[[2, 1]], is[[2, 2]], 
+      0}, {0, 0, 0}};(*[3,3]*)
+   iwm = {{iw[[1, 1]], iw[[1, 2]], 0}, {iw[[2, 1]], iw[[2, 2]], 
+      0}, {0, 0, 0}};
+   iR1m = IdentityMatrix[3] - iwm/2;
+   iR2m = IdentityMatrix[3] + iwm/2;
+   iRm = (Inverse[iR1m]) . (iR2m);(*[3,3]*)
+   iR1du = -0.5*iwdu;
+   iR2du = 0.5*iwdu;
+   IiR1diR1 = divM[iR1m];
+   IiR1du = 
+    Table[Sum[
+      IiR1diR1[[k, l, i, j]]*iR1du[[m, k, l]], {k, 2}, {l, 2}], {m, 
+      8}, {i, 2}, {j, 2}];
+   iRdu = 
+    Table[Sum[IiR1du[[m, i, j]]*iR2m[[j, l]], {j, 2}], {m, 8}, {i, 
+       2}, {l, 2}] + 
+     Table[Sum[Inverse[iR1m][[i, j]]*iR2du[[m, j, l]], {j, 2}], {m, 
+       8}, {i, 2}, {l, 2}];
+   iRTdu = Transpose[iRdu, 2 <-> 3];
+   lem = iRm . leu . Transpose[iRm] + ism;
+   epm = iRm . ep0 . Transpose[iRm];
+   ledu = 
+    Table[Sum[
+       iRdu[[m, k, l]]*(leu . Transpose[iRm])[[l, j]], {l, 2}], {m, 
+       8}, {k, 2}, {j, 2}] + 
+     Table[Sum[(iRm . leu)[[k, l]]*iRTdu[[m, l, j]], {l, 2}], {m, 
+       8}, {k, 2}, {j, 2}] + isdu;
+   leVm = ch3[lem];(*[1,4]*)
+   leduV = Table[ch[Table[ledu[[m, i, j]], {i, 2}, {j, 2}]], {m, 8}];(*[
+   8,3]*)
+   leduVm = 
+    Table[{leduV[[i, 1]], leduV[[i, 2]], 0, leduV[[i, 3]]}, {i, 8}];
+   epdu = 
+    Table[Sum[
+       iRdu[[m, k, l]]*(ep0 . Transpose[iRm])[[l, j]], {l, 2}], {m, 
+       8}, {k, 2}, {j, 2}] + 
+     Table[Sum[(iRm . ep0)[[k, l]]*iRTdu[[m, l, j]], {l, 2}], {m, 
+       8}, {k, 2}, {j, 2}];
+   
+   epVm = ch3[epm];
+   epduV = Table[ch[Table[epdu[[m, i, j]], {i, 2}, {j, 2}]], {m, 8}];
+   epduVm = 
+    Table[{epduV[[i, 1]], epduV[[i, 2]], 0, epduV[[i, 3]]}, {i, 8}];
+   sigVm =  Dek2 . leVm;
+   sigm = chsb3[sigVm] /. subsu /. check[xy0, {0, 0}];
+   sigVdu = 
+    Table[Sum[Dek2[[i, j]]*leduVm[[k, i]], {i, 4}], {k, 8}, {j, 4}];
+   sigdu = 
+    Table[chsb3[Table[sigVdu[[m, i]], {i, 4}]], {m, 8}] /. subsu;(*[8,
+   4,4]*)
+   (*_____________________________________________*)
+   subsPoly2 = 
+    Table[Flatten[{x -> (xy0[[i, 1]] + duv[[i, 1]]), 
+       y -> (xy0[[i, 2]] + duv[[i, 2]]), 
+       Table[kk[j] -> lc[[i, j]], {j, 2}]}], {i, 4}];
+   (*Do[U2[i] = Table[duv[[j, i]], {j,4}], {i,2}];*)
+   U2 = Table[duv[[j, i]], {j, 4}, {i, 2}];
+   dU2 = 
+    Table[D[U2[[i, j]], Flatten[U2][[m]]], {m, 8}, {i, 4}, {j, 2}];(*[
+   8,4,2]*)
+   
+   coefdU2 = Inverse[Table[poly /. subsPoly2[[i]], {i, 4}]];(*[4,4]*)
+   dcoefdU2 = 
+    Table[D[coefdU2[[i, j]], Flatten[U2][[m]]], {m, 8}, {i, 4}, {j, 
+      4}];(*它还有duv*)
+   (*[8,4,4]*)
+   
+   ddcoefdU2 = 
+    Table[D[dcoefdU2[[n, i, j]], Flatten[U2][[m]]], {n, 8}, {m, 
+      8}, {i, 4}, {j, 4}];
+   (*dcoefdU2=dcoefdU2/.subsu;*)
+   (*[8,8,4,4]*)
+   
+   coef02 = 
+    Table[Sum[coefdU2[[i, j]]*U2[[j, k]], {j, 4}], {k, 2}, {i, 4}] /. 
+     subsu;
+   (*[2,4]*)
+   dcoef02 = 
+    Table[Sum[coefdU2[[i, j]]*dU2[[m, j, k]], {j, 4}], {m, 8}, {k, 
+        2}, {i, 4}] + 
+      Table[Sum[dcoefdU2[[m, i, j]]*U2[[j, k]], {j, 4}], {m, 8}, {k, 
+        2}, {i, 4}] /. subsu;(*[8,2,4]*)
+   ddcoef02 = 
+    Table[Sum[dcoefdU2[[n, i, j]]*dU2[[m, j, k]], {j, 4}], {m, 8}, {n,
+         8}, {k, 2}, {i, 4}] + 
+      Table[Sum[ddcoefdU2[[n, m, i, j]]*U2[[j, k]], {j, 4}], {m, 
+        8}, {n, 8}, {k, 2}, {i, 4}] + 
+      Table[Sum[dcoefdU2[[m, i, j]]*dU2[[n, j, k]], {j, 4}], {m, 
+        8}, {n, 8}, {k, 2}, {i, 4}] /. subsu;
+   (*前导后不导时逆转，后导前不导时顺溜*)
+   
+   
+   Xl2 = {{Sum[dNNdkk1[[i]]*(xy0[[i, 1]] + duv[[i, 1]]), {i, 4}], 
+      Sum[dNNdkk1[[i]]*(xy0[[i, 2]] + duv[[i, 2]]), {i, 4}]}, {Sum[
+       dNNdkk2[[i]]*(xy0[[i, 1]] + duv[[i, 1]]), {i, 4}], 
+      Sum[dNNdkk2[[i]]*(xy0[[i, 2]] + duv[[i, 2]]), {i, 4}]}};
+   (*[2,2]*)
+   
+   dXl2 = 
+    Table[D[Xl2[[i, j]], Flatten[U2][[m]]], {m, 8}, {i, 2}, {j, 
+       2}] /. subsu;
+   (*[8,2,2]*)
+   
+   detXl2 = Det[Xl2] /. subsu /. check[xy0, {0, 0}];
+   detXl2du = 
+    Table[D[Det[Xl2], Flatten[U2][[m]]], {m, 8}] /. subsu /. 
+     check[xy0, {0, 0}];
+   Xl2 = Xl2 /. subsu;
+   
+   lX2 = Inverse[Xl2];
+   lX2dXl2 = divM[Xl2];
+   
+   dlX2 = 
+    Table[Sum[
+       lX2dXl2[[k, l, i, j]]*dXl2[[m, k, l]], {k, 2}, {l, 2}], {m, 
+       8}, {i, 2}, {j, 2}] /. subsu;
+   
+   polydxd1 = Table[D[poly[[i]], poly[[j]]], {i, 4}, {j, 2, 3}];
+   (*问题：不知道这里的polydx要不要考虑其对uvw的导数*)
+   (*鉴于上面的sig没考虑，这里先试一下不考虑*)
+   dpoly = 
+    Table[D[poly[[i]], Flatten[U2][[m]]], {m, 8}, {i, 4}] /. subsu;
+   dpolydxd1 = Table[0, 8, 4, 2];
+   
+   polydkk = Table[D[poly[[i]], kk[j]], {i, 4}, {j, 2}];
+   polydxd2 = 
+    Table[Sum[polydkk[[i, j]]*lX2[[j, k]], {j, 2}], {i, 4}, {k, 2}];
+   dpolydxd2 = 
+    Table[Sum[polydkk[[i, j]]*dlX2[[m, j, k]], {j, 2}], {m, 8}, {i, 
+      4}, {k, 2}];
+   polydxd = polydxd1 + polydxd2;
+   
+   dpolydxd = 
+    Table[dpolydxd1[[m, i, j]] + dpolydxd2[[m, i, j]], {m, 8}, {i, 
+       4}, {j, 2}] /. subsu;
+   
+   ux2 = 
+    Table[Sum[coef02[[i, j]]*polydxd[[j, k]], {j, 4}], {i, 2}, {k, 
+       2}] /. subsu;
+   (*coef02[2,4],coefdu2[8,8]*)
+   dux2 = 
+    Table[Sum[dcoef02[[m, i, j]]*polydxd[[j, k]], {j, 4}], {m, 
+        8}, {i, 2}, {k, 2}] + 
+      Table[Sum[coef02[[i, j]]*dpolydxd[[m, j, k]], {j, 4}], {m, 
+        8}, {i, 2}, {k, 2}] /. subsu;
+   ddux2 = 
+    Table[Sum[ddcoef02[[n, m, i, j]]*polydxd[[j, k]], {j, 4}], {m, 
+        8}, {n, 8}, {i, 2}, {k, 2}] + 
+      Table[Sum[dcoef02[[m, i, j]]*dpolydxd[[n, j, k]], {j, 4}], {m, 
+        8}, {n, 8}, {i, 2}, {k, 2}] + 
+      Table[Sum[dcoef02[[n, i, j]]*dpolydxd[[m, j, k]], {j, 4}], {m, 
+        8}, {n, 8}, {i, 2}, {k, 2}] /. subsu;
+   
+   \[Epsilon]2 = Simplify[(ux2 + (ux2)\[Transpose]) / 2];
+   \[Epsilon]du2 = 
+    Table[Simplify[dux2[[m]] + (dux2[[m]])\[Transpose]], {m, 8}] / 
+     2 ;
+   d\[Epsilon]du2 = 
+    Table[Simplify[ddux2[[m, n]] + (ddux2[[m, n]])\[Transpose]], {m, 
+       8}, {n, 8}] / 2 ;
+   \[Epsilon]2m = {{\[Epsilon]2[[1, 1]], \[Epsilon]2[[1, 2]], 
+      0}, {\[Epsilon]2[[2, 1]], \[Epsilon]2[[2, 2]], 0}, {0, 0, 0}};
+   
+   \[Epsilon]du2m = Table[0, 8, 2, 2];
+   Do[Do[\[Epsilon]du2m[[k, i]] = 
+      Append[\[Epsilon]du2[[k, i]], 0], {i, 2}], {k, 8}];
+   Do[\[Epsilon]du2m[[k]] = 
+     Append[\[Epsilon]du2m[[k]], {0, 0, 0}], {k, 8}];
+   (*\[Delta]\[Epsilon]du=\[Epsilon]du2m;*)
+   \[Delta]\[Epsilon] = \[Epsilon]du2m;
+   d\[Epsilon]du2m = Table[0, 8, 8, 2, 2];
+   Do[Do[
+     d\[Epsilon]du2m[[m, k, i]] = 
+      Append[d\[Epsilon]du2[[m, k, i]], 0], {i, 2}], {m, 8}, {k, 8}];
+   Do[d\[Epsilon]du2m[[m, k]] = 
+     Append[d\[Epsilon]du2m[[m, k]], {0, 0, 0}], {m, 8}, {k, 8}];
+   \[Delta]\[Epsilon]du = d\[Epsilon]du2m;
+   
+   getCoefList[fpV_, xy01_] := 
+    Module[{subskk = check[xy01, {0, 0}], fpV1 = Chop[fpV]}, 
+     coef0 = fpV1 /. subskk;
+     coef1 = Coefficient[fpV1, (kk[1])] /. subskk;
+     coef11 = Coefficient[fpV1, (kk[2])] /. subskk;
+     coef2 =
+      Coefficient[fpV1, (kk[1])*kk[2]] /. subskk;
+     coef22 =
+      Coefficient[fpV1, (kk[1])^2 ] /. subskk;
+     coef3 = Coefficient[fpV1, (kk[2])^2 ] /. subskk;
+     Return[{coef0, coef1, coef11, coef2, coef22, coef3}];
+     ];
+   fpV = 
+    Table[Sum[
+       Simplify[sigm[[i, j]] \[Delta]\[Epsilon][[k, i, j]]], {i, 
+        3}, {j, 3}], {k, 8}]*detXl2;
+   Fint =  thick*Table[coeflist1 = getCoefList[fpV[[i]], xy0];
+      (*Print[coeflist1];*)
+      coeflist1 . Hlist, 
+      {i, 8}];
+   
+   KpV1 = 
+    Table[Sum[
+       Simplify[sigdu[[m, i, j]] \[Delta]\[Epsilon][[n, i, j]] ], {i, 
+        3}, {j, 3}], {m, 8}, {n, 8}] detXl2;
+   KpV2 = 
+    Table[Sum[
+       Simplify[
+        sigm[[i, j]] \[Delta]\[Epsilon]du[[m, n, i, j]] ], {i, 
+        3}, {j, 3}], {n, 8}, {m, 8}] detXl2;
+   KpV3 = 
+    Table[Sum[
+      Simplify[
+       detXl2du[[m]]*
+        sigm[[i, j]] \[Delta]\[Epsilon][[n, i, j]] ], {i, 3}, {j, 
+       3}], {m, 8}, {n, 8}] ;
+   KpV = KpV1 + KpV2 + KpV3 /. subsu;
+   K = thick*Table[coeflist2 = getCoefList[KpV[[m, n]], xy0];
+      coeflist2 . Hlist,
+      {m, 8}, {n, 8}];
+   
+   Print["\[Epsilon] = \n", 
+    Chop[lem /. check[xy0, {0, 0}]] // MatrixForm];
+   Print["\[Sigma] = \n", 
+    Chop[sigm /. check[xy0, {0, 0}]] // MatrixForm];
+   
+   Return[{Fint, K}];
+   ];
+leu = Table[0, 3, 3];
+ep0 = Table[0, 3, 3];
+peeq0 = 0;
+
+getFint[Fint_, point_] := 
+  Print[{Fint[[2 * point - 1]], Fint[[2 * point]]}];
+ans = cpe4R[xy0, uv0, leu, ep0, peeq0];
+
+ele = {1, 2, 3, 4};
+Print["RF : "];
+Do[getFint[ans[[1]], ele[[i]]], {i, 4}];
+(*
+ans2 = cpe4R[xy0, uv0];
+
+ele = {1,2,3,4};
+Print["RF : "];
+Do[getFint[ans2[[1]], ele[[i]]], {i, 4}];
+Print["K = \n", MatrixForm[ans2[[2]]]];
+Print["_____________________________________"];
+\[Delta]F=ans2[[1]]-ans[[1]];
+F\[Delta]u=\[Delta]F/0.0000001*)
+
+uv0 = uv0 + \[Delta]uv;
+ans2 = cpe4R[xy0, uv0, leu, ep0, peeq0];
+\[Delta]thing = ans2[[1]] - ans[[1]];
+thing\[Delta]u = \[Delta]thing/0.0000001
+ans[[2]] // MatrixForm
