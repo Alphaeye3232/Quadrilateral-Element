@@ -1,0 +1,75 @@
+Clear["`*"];
+xy0={{0, 1}, {0,0}, {1,0}, {1, 1}};
+uv0={{0,0},{1,0},{0,0},{0,0}};
+δuv={{0.00000001,0},{0,0},{0,0},{0,0}};
+uv0+=δuv;
+
+
+uv=Table[{u[i],v[i]},{i,4}];
+duv=Table[{du[i],dv[i]},{i,4}];
+
+subsu=Flatten[Table[uv[[i,j]]->uv0[[i,j]],{i,4},{j,2}]];
+
+
+NN[1]=0.25*(1-kk[1])*(1-kk[2]);
+NN[2]=0.25*(1+kk[1])*(1-kk[2]);
+NN[3]=0.25*(1+kk[1])*(1+kk[2]);
+NN[4]=0.25*(1-kk[1])*(1+kk[2]);
+
+gaussIntegrate[f_] := Module[{}, 
+   gaussPoint = {{kk[1]->0.577350, kk[2]->0.577350}, {kk[1]->-0.577350, kk[2]->0.577350}, 
+     {kk[1]->-0.577350, kk[2]->-0.577350}, {kk[1]->0.577350, kk[2]->-0.577350}};
+   integrate = Sum[(f /. gaussPoint[[i]]), {i, 4}];(*函数代入高斯积分点的值后求和*)
+   Return[integrate];
+   ];
+checkGaussPoint[strain_] := Module[{}, 
+  gaussPoint = {{kk[1]->0.577350, kk[2]->0.577350}, {kk[1]->-0.577350, kk[2]->0.577350}, 
+    {kk[1]->-0.577350, kk[2]->-0.577350}, {kk[1]->0.577350, kk[2]->-0.577350}};
+  Print[Table[strain[[1, 1]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  Print[2 * Table[strain[[1, 2]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  Print[Table[strain[[2, 2]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  ]
+checkGaussPointSig[stress_] := Module[{}, 
+  gaussPoint = {{kk[1]->0.577350, kk[2]->0.577350}, {kk[1]->-0.577350, kk[2]->0.577350}, 
+    {kk[1]->-0.577350, kk[2]->-0.577350}, {kk[1]->0.577350, kk[2]->-0.577350}};
+  Print[Table[stress[[1, 1]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  Print[ Table[stress[[1, 2]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  Print[Table[stress[[2, 2]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  ]
+E0=3 103;
+mu=0.3;
+
+X=Sum[xy0[[i]]NN[i],{i,4}];
+U=Sum[uv[[i]]NN[i],{i,4}];(*[1*2]*)
+dU=Sum[duv[[i]]NN[i],{i,4}];(*[1*2]*)
+ul=Table[D[U[[i]],kk[j]],{i,2},{j,2}];
+Xl=Table[D[X[[i]],kk[j]],{i,2},{j,2}];
+ux=Simplify[ul.Inverse[Xl]];(*[2*2]*)
+ud=Simplify[(ux+ux\[Transpose])/2];(*[2*2]*)
+udu=ud/.subsu;
+Print["ud_point="];
+checkGaussPoint[udu];
+udu= Table[gaussIntegrate[udu[[i,j]]], {i, 2},{j, 2}];
+Print["ud="];
+Print[udu];
+sig=(E0/(1-mu^2)*(1-mu)*ud+E0/(1-mu^2)*mu*Tr[ud]IdentityMatrix[2]);
+
+sigdu=Table[D[sig,Flatten[uv][[i]]],{i,8}];
+sigu=sig/.subsu;
+Print["sig_point="];
+checkGaussPointSig[sigu];
+sigu=Table[gaussIntegrate[sigu[[i,j]]], {i, 2},{j, 2}];
+Print["sig="];
+Print[sigu];
+dud = Sum[D[ud, Flatten[uv][[i]]]*Flatten[duv][[i]], {i, 8}];
+ndud = Table[D[dud, Flatten[duv][[i]]], {i, 8}];
+
+virwork = Table[Det[Xl]* Sum[ndud[[n, i, j]]*sig[[i, j]], {i, 2}, {j, 2}], {n, 8}];
+dvirwork = Table[Det[Xl]*Sum[ndud[[n, i, j]]*sigdu[[m, i, j]], {i, 2}, {j, 2}], {n, 8}, {m, 8}];
+Fint = Table[gaussIntegrate[virwork[[i]]], {i, 8}];
+Fint =Fint /.subsu;
+Print["Fint ="];
+Print[Fint ];
+K = Table[gaussIntegrate[dvirwork[[i]]], {i, 8}];
+Print["K ="];
+Print[K ];
