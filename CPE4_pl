@@ -1,0 +1,256 @@
+Clear["`*"];
+ch[gh_]:=Module[{},{gh[[1,1]],gh[[2,2]],2 gh[[1,2]]}];
+ch3[gh_]:=Module[{},{gh[[1,1]],gh[[2,2]],gh[[3,3]],2 gh[[1,2]]}];
+chb3[gh_]:=Module[{},{{gh[[1]],gh[[4]]/2,0},{gh[[4]]/2,gh[[2]],0},{0,0,gh[[3]]}}];
+chsb3[gh_]:=Module[{},{{gh[[1]],gh[[4]],0},{gh[[4]],gh[[2]],0},{0,0,gh[[3]]}}];
+chs3[gh_]:=Module[{},{gh[[1,1]],gh[[2,2]],gh[[3,3]],gh[[1,2]]}];
+divM[gb_]:=Module[{},
+   ingb=Inverse[gb];
+   ingbdgb=Table[(-ingb)[[i,j]]*ingb[[k,l]],{j,2},{k,2},{i,2},{l,2}];
+   Return[ingbdgb];
+   ];
+xy0={{0, 1.3}, {0,0}, {1,0}, {1, 1}};
+lc = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+uv0 = {{0, 0}, {0.15, 0}, {0, 0}, {0, 0}};
+δuv = {{0.00000001, 0}, {0, 0}, {0, 0}, {0, 0}};
+
+
+uv = Table[{u[i], v[i]}, {i, 4}];
+duv = Table[{du[i], dv[i]}, {i, 4}];
+lev=Table[lex[i],{i,4}];
+epv=Table[epx[i],{i,4}];
+E0 = 3*103;
+mu = 0.3;
+D0 = E0/(1 + mu)/(1 - 2*mu);
+Dek=D0({
+     {1-mu, mu, 0},
+     {mu, 1-mu, 0},
+     {0, 0, (1-2mu)/2}
+    });
+De=D0({
+     {1-mu, mu, mu, 0},
+     {mu, 1-mu, mu, 0},
+     {mu, mu, 1-mu, 0},
+     {0, 0, 0, (1-2mu)/2}
+    });
+
+Do[NN[i] = (1 + lc[[i, 1]]*kk[1])*(1 + lc[[i, 2]]*kk[2])/4, {i, 4}];
+(*subsq={kk[1]->0.2,kk[2]->0.2};*)
+Do[subsq[i] = {kk[1]->( lc[[i, 1]]*0.577350),kk[2]->(lc[[i, 2]]*0.577350)}, {i, 4}];
+gaussIntegrate[f_] := Module[{}, 
+   gaussPoint = {{kk[1]->0.577350, kk[2]->0.577350}, {kk[1]->-0.577350, kk[2]->0.577350}, 
+     {kk[1]->-0.577350, kk[2]->-0.577350}, {kk[1]->0.577350, kk[2]->-0.577350}};
+   integrate = Sum[(f /. gaussPoint[[i]]), {i, 4}];
+   (*函数代入高斯积分点的值后求和*)
+   Return[integrate];
+   ];
+(*---------------------------------------------*)
+(*(在全域上求平均球应变张量进行调整)*)
+cpe4Adjust[strain_, dA_] := Module[{}, 
+   devStrain = strain - Tr[strain] / 2 * IdentityMatrix[2];
+   udp =  Tr[strain] / 2;
+   udpA1=gaussIntegrate[udp * dA] ;
+   udpA2=gaussIntegrate[dA];
+   udpA=udpA1/udpA2;
+   newStrain = devStrain + udpA * IdentityMatrix[2];
+   Return[newStrain];
+   ];
+cpe4Adjustdu[strain_, dA_,straindu_, dAdu_] := Module[{}, 
+   
+   devStrain = strain - Tr[strain] / 2 * IdentityMatrix[2];
+   devStraindu = straindu - 0.5*Table[Sum[IdentityMatrix[2][[i,j]]*straindu[[k,i,j]],{i,2},{j,2}]* IdentityMatrix[2],{k,8}];
+   udp =  Tr[strain] / 2;
+   udpdu=0.5*Table[Sum[IdentityMatrix[2][[i,j]]*straindu[[k,i,j]],{i,2},{j,2}],{k,8}];
+   udpdA=Table[udpdu[[i]]*dA,{i,8}]+Table[udp*dAdu[[k]],{k,8}];(*[1*8]*)
+   
+   udpdAg= Table[gaussIntegrate[udpdA[[i]]], {i, 8}];
+   dAdug=Table[gaussIntegrate[dAdu[[i]]], {i, 8}];
+   udpdAdA=(Table[udpdAg[[i]]*gaussIntegrate[dA],{i,8}]-Table[gaussIntegrate[udp * dA]*dAdug[[k]],{k,8}])/(gaussIntegrate[dA])2;
+   udpA1=gaussIntegrate[udp * dA] ;
+   udpA2=gaussIntegrate[dA];
+   udpA=udpA1/udpA2;
+   newStrain = devStrain + udpA * IdentityMatrix[2];
+   newStraindu = devStraindu +Table[udpdAdA [[i]]* IdentityMatrix[2],{i,8}];
+   Return[{newStrain,newStraindu}];
+   ];
+
+
+(*---------------------------------------------*)
+getSig[le_,ep_,peeq0_]:=Module[{},
+   subsle=Table[lev[[i]]->le[[i]],{i,4}];
+   subsep=Table[epv[[i]]->ep[[i]],{i,4}];
+   ee0=lev-epv/.subsle/.subsep;
+   sig0=De.ee0;
+   sig0=chsb3[sig0];
+   
+   σs=100*peeq0+50;
+   
+   p=-1/3*Tr[sig0];
+   S0=sig0+p*IdentityMatrix[3];
+   q0=(3/2*Sum[S0[[i,j]]*S0[[i,j]],{i,3},{j,3}])0.5;
+   F=q0-σs;
+   If[F<=0,
+    {sig=chs3[sig0];
+     ep1=ep;
+     peeq1=peeq0;
+     sigdle=De;
+     sigdep=-De;},
+    {{sig,ep1,peeq1,sigdle,sigdep}=material[le,ep,peeq0,subsle,subsep];
+     }
+    ];
+   Return[{sig,ep1,peeq1,sigdle,sigdep}];
+   ];
+material[le_,ep_,peeq0_,subsle_,subsep_]:=Module[{},
+   dep=Table[ddep[i],{i,4}];
+   ee=lev-epv-dep;
+   sig=De.ee;
+   σ0=Table[sigd[i],{i,4}];
+   subs=Table[σ0[[i]]->sig[[i]],{i,4}];
+   σ0=chsb3[σ0];
+   p=-1/3*Tr[σ0];
+   S=σ0+p*IdentityMatrix[3];
+   E1=chb3[dep]-1/3*Tr[chb3[dep]]*IdentityMatrix[3];
+   q=(3/2*Sum[S[[i,j]]*S[[i,j]],{i,3},{j,3}])0.5;
+   
+   direc=Table[D[q,chs3[σ0][[i]]]/.subs,{i,4}];
+   dpeeq=(2/3*Sum[E1[[i,j]]*E1[[i,j]],{i,3},{j,3}])0.5/.subs;
+   eq1=Table[dλ*direc[[i]]-dep[[i]],{i,4}];
+   eq2={(q/.subs)-(100*(peeq0+dpeeq)+50)};
+   eqs=Join[eq1,eq2];
+   var=Append[dep,dλ];
+   eqsdvar=Table[D[eqs[[i]],var[[j]]],{i,5},{j,5}];
+   {dep0,dλ0}=newton[eqs/.subsep/.subsle,var,eqsdvar/.subsep/.subsle];
+   subsdep=Table[dep[[i]]->dep0[[i]],{i,4}];
+   subdλ=dλ->dλ0;
+   subsall=Flatten[{subsep,subsle,subsdep,subdλ}];
+   {sigdle,sigdep}=getK[eqs,var,eqsdvar,subsall];
+   ep1=epv+dep/.subsall;
+   peeq1=peeq0+dpeeq/.subsall;
+   sig=sig/.subsall;
+   Return[{sig,ep1,peeq1,sigdle,sigdep}];
+   ];
+getK[eqs_,var_,Jac_,subsall_]:=Module[{},
+   Jac1=Jac/.subsall;
+   
+   eqsdle=Table[D[eqs[[i]],lev[[j]]],{i,5},{j,4}]/.subsall;
+   eqsdep=Table[D[eqs[[i]],epv[[j]]],{i,5},{j,4}]/.subsall;
+   depdle=Inverse[Jac1].(-eqsdle);
+   depdep=Inverse[Jac1].(-eqsdep);
+   sigdle=De.(IdentityMatrix[4]-Table[depdle[[i]],{i,4}]);
+   sigdep=De.(-IdentityMatrix[4]-Table[depdep[[i]],{i,4}]);
+   Return[{sigdle,sigdep}];
+   ];
+newton[eqs_,var_,Jac_]:=Module[{dep0,dλ0},
+   eqs0=eqs;
+   var0=var;
+   subsvar=Table[var0[[i]]->0.0000001,{i,5}];
+   Do[
+    Jac0=Jac/.subsvar;
+    Res=0-eqs0/.subsvar;
+    If[Norm[Res]<=1*10-6,Break[];];
+    dds=Inverse[Jac0].Res;
+    subsvar=Table[var0[[i]]->subsvar[[i,2]]+dds[[i]],{i,5}];
+    ,{iv,10}];
+   dep0=Table[subsvar[[i,2]],{i,4}];
+   dλ0=subsvar[[5,2]];
+   Return[{dep0,dλ0}];
+   ];
+(*---------------------------------------------*)
+c2d4[xy0_, uv0_,leu_,subsq_,ep0_,peeq0_] := Module[{}, 
+   subsu = Flatten[Table[uv[[i, j]]->uv0[[i, j]], {i, 4}, {j, 2}]];
+   xm = Table[Sum[(xy0+uv/2)[[i,j]]*NN[i], {i, 4}],{j,2}];
+   U = Table[Sum[uv[[i,j]]*NN[i], {i, 4}],{j,2}];
+   xml=Table[D[xm[[i]],kk[j]],{i,2},{j,2}];
+   detxmldu=Table[D[Det[xml],Flatten[uv][[i]]]/.subsu,{i,8}];
+   ul=Table[D[U[[i]],kk[j]],{i,2},{j,2}];
+   xmldu=Table[D[xml[[i,j]],Flatten[uv][[k]]],{k,8},{i,2},{j,2}]/.subsu;
+   uldu=Table[D[ul[[i,j]],Flatten[uv][[k]]],{k,8},{i,2},{j,2}]/.subsu;
+   xml=xml/.subsu;
+   ul=ul/.subsu;
+   isl = ul.Inverse[xml];
+   Ixml=Inverse[xml];
+   Ixmldxml=divM[xml];
+   Ixmldu=Table[Sum[Ixmldxml[[k,l,i,j]]*xmldu[[m,k,l]],{k,2},{l,2}],{m,8},{i,2},{j,2}];
+   isldu=Table[Sum[uldu[[m,i,j]]*Ixml[[j,k]],{j,2}],{m,8},{i,2},{k,2}]+Table[Sum[ul[[i,j]]*Ixmldu[[m,j,k]],{j,2}],{m,8},{i,2},{k,2}];
+   is=0.5(isl+Transpose[isl]);
+   iw=0.5(isl-Transpose[isl]);
+   isdu=0.5(isldu+Transpose[isldu,2<->3]);
+   iwdu=0.5(isldu-Transpose[isldu,2<->3]);
+   {isa,isadu}=cpe4Adjustdu[is, Det[xml],isdu,detxmldu]/.subsq;
+   {iwa,iwadu}=cpe4Adjustdu[iw, Det[xml],iwdu,detxmldu]/.subsq;
+   
+   isam={{isa[[1,1]],isa[[1,2]],0},{isa[[2,1]],isa[[2,2]],0},{0,0,0}};
+   iwam={{iwa[[1,1]],iwa[[1,2]],0},{iwa[[2,1]],iwa[[2,2]],0},{0,0,0}};
+   iR1m=IdentityMatrix[3]-iwam/2/.subsq;
+   iR2m=IdentityMatrix[3]+iwam/2/.subsq;
+   iRm=(Inverse[iR1m]).(iR2m);(*[3,3]*)
+   
+   iR1du=-0.5*iwadu;
+   iR2du=0.5*iwadu;
+   IiR1diR1=divM[iR1m];
+   IiR1du=Table[Sum[IiR1diR1[[k,l,i,j]]*iR1du[[m,k,l]],{k,2},{l,2}],{m,8},{i,2},{j,2}];
+   iRdu=Table[Sum[IiR1du[[m,i,j]]*iR2m[[j,l]],{j,2}],{m,8},{i,2},{l,2}]+Table[Sum[Inverse[iR1m][[i,j]]*iR2du[[m,j,l]],{j,2}],{m,8},{i,2},{l,2}];
+   iRTdu=Transpose[iRdu,2<->3];
+   lem=iRm.leu.Transpose[iRm]+isam;
+   epm=iRm.ep0.Transpose[iRm];
+   
+   ledu=Table[Sum[iRdu[[m,k,l]]*(leu.Transpose[iRm])[[l,j]],{l,2}],{m,8},{k,2},{j,2}]+Table[Sum[(iRm.leu)[[k,l]]*iRTdu[[m,l,j]],{l,2}],{m,8},{k,2},{j,2}]+isadu;
+   leVm=ch3[lem];
+   leduV=Table[ch[Table[ledu[[m,i,j]],{i,2},{j,2}]],{m,8}];
+   
+   leduVm=Table[{leduV[[i,1]],leduV[[i,2]],0,leduV[[i,3]]},{i,8}];
+   
+   epdu=Table[Sum[iRdu[[m,k,l]]*(ep0.Transpose[iRm])[[l,j]],{l,2}],{m,8},{k,2},{j,2}]+Table[Sum[(iRm.ep0)[[k,l]]*iRTdu[[m,l,j]],{l,2}],{m,8},{k,2},{j,2}];
+   
+   epVm=ch3[epm];
+   epduV=Table[ch[Table[epdu[[m,i,j]],{i,2},{j,2}]],{m,8}];
+   epduVm=Table[{epduV[[i,1]],epduV[[i,2]],0,epduV[[i,3]]},{i,8}];
+   
+   {sigVm,ep1,peeq1,sigdle,sigdep}=getSig[leVm,epVm,peeq0];
+   
+   sigm=chsb3[sigVm];
+   sigVdu=Table[Sum[sigdle[[i,j]]*leduVm[[k,i]],{i,4}],{k,8},{j,4}]+Table[Sum[sigdep[[i,j]]*epduVm[[k,i]],{i,4}],{k,8},{j,4}];
+   
+   sigdu=Table[chsb3[Table[sigVdu[[m,i]],{i,4}]],{m,8}];
+   (*_____________________________________________*)
+   x2=Table[Sum[(xy0+uv)[[i,j]]*NN[i],{i,4}],{j,2}];
+   dU =  Table[Sum[duv[[i,j]]*NN[i], {i, 4}],{j,2}];
+   x2l=Table[D[x2[[i]],kk[j]],{i,2},{j,2}];
+   detx2lDu=Table[D[Det[x2l],Flatten[uv][[i]]]/.subsu,{i,8}];
+   dul=Table[D[dU[[i]],kk[j]],{i,2},{j,2}];
+   x2ldu=Table[D[x2l[[i,j]],Flatten[uv][[k]]],{k,8},{i,2},{j,2}]/.subsu;
+   x2l=x2l/.subsu;
+   dul=dul/.subsu;
+   dux=dul.Inverse[x2l];
+   duxis=0.5(dux+Transpose[dux]);
+   Ix2l=Inverse[x2l];
+   Ix2ldx2l=divM[x2l];
+   Ix2ldu=Table[Sum[Ix2ldx2l[[k,l,i,j]]*x2ldu[[m,k,l]],{k,2},{l,2}],{m,8},{i,2},{j,2}];
+   duxdu=Table[Sum[dul[[i,j]]*Ix2ldu[[m,j,l]],{j,2}], {m,8},{i,2},{l,2}];
+   duxisdu= Table[duxdu[[m]] + (duxdu[[m]])\[Transpose], {m, 8}] / 2;
+   {duxisa,duxisadu}=cpe4Adjustdu[duxis, Det[x2l],duxisdu,detx2lDu]/.subsq;
+   duxisam={{duxisa[[1,1]],duxisa[[1,2]],0},{duxisa[[2,1]],duxisa[[2,2]],0},{0,0,0}};
+   δϵ=Table[D[duxisam[[i,j]],Flatten[duv][[m]]],{m,8},{i,3},{j,3}];
+   duxisamdu=Table[0,8,2,2];
+   Do[Do[duxisamdu[[k,i]]=Append[duxisadu[[k,i]],0],{i,2}],{k,8}];
+   Do[duxisamdu[[k]]=Append[duxisamdu[[k]],{0,0,0}],{k,8}];
+   
+   δϵdu=Table[D[duxisamdu[[i]],Flatten[duv][[m]]],{i,8},{m,8}];
+   
+   Fint= Det[x2l]*Table[Sum[δϵ[[n,i,j]]*sigm[[i,j]], {i,3}, {j, 3}], {n, 8}]/.subsq;
+   
+   dK1=Table[Det[x2l]*Sum[sigdu[[m,i, j]]*δϵ[[k, i, j]], {i, 3}, {j, 3}], {m,8},{k,8}];
+   dK2=Table[Det[x2l]*Sum[sigm[[i, j]]*δϵdu[[m,k, i, j]], {i, 3}, {j, 3}], {m,8},{k,8}];
+   dK3=Table[Sum[detx2lDu[[m]]*sigm[[i, j]]*δϵ[[k, i, j]], {i, 3}, {j, 3}], {m,8},{k,8}];
+   KK=dK1+dK2+dK3/.subsq;
+   
+   Return[{lem/.subsq,sigm/.subsq,Fint,KK,ep1,peeq1}];
+   ];
+Do[{leu[i]=Table[0,3,3];ep0[i]=Table[0,3,3];peeq0[i]=0},{i,4}];
+Do[{element1[i]=c2d4[xy0, uv0,leu[i],subsq[i],ep0[i],peeq0[i]]},{i,4}];
+{le1,sig1,Fint1,KK1,ep1,peeq1}=Table[Sum[element1[i][[j]],{i,4}],{j,6}];
+sigt=Table[chs3[element1[i][[2]]],{i,4}];
+ept=Table[element1[i][[5]],{i,4}];
+peeqt=Table[element1[i][[6]],{i,4}];
+
+Print["le=",le1,"\nsig=",sig1,"\nsig_point=",sigt,"\nFint=",ArrayReshape[Fint1,{4,2}],"\nK=",MatrixForm[KK1],"\nep1=",ep1,"\nep1_point=",ept,"\npeeq1=",peeq1,"\npeeq1_point=",peeqt];
