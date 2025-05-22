@@ -1,0 +1,1792 @@
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+#include <Eigen/Dense>
+#include <unsupported/Eigen/CXX11/Tensor>
+
+#define NUM_NODES 4     
+#define DIMENSIONS 2    // 三维空间
+#define GAUSS_POINTS 2 
+
+void ch(double gh2x2[2][2], double* gh1x3)
+{
+
+	gh1x3[0] = gh2x2[0][0];
+	gh1x3[1] = gh2x2[1][1];
+	gh1x3[2] = gh2x2[0][1] * 2;
+}
+
+void ch3(double gh3x3[3][3], double* gh1x4)
+{
+
+	gh1x4[0] = gh3x3[0][0];
+	gh1x4[1] = gh3x3[1][1];
+	gh1x4[2] = gh3x3[2][2];
+	gh1x4[3] = gh3x3[0][1] * 2;
+}
+
+void chb3(double* gh1x4, double gh3x3[3][3])
+{
+
+	gh3x3[0][0] = gh1x4[0];
+	gh3x3[0][1] = gh1x4[3] / 2;
+	gh3x3[0][2] = 0;
+	gh3x3[1][0] = gh1x4[3] / 2;
+	gh3x3[1][1] = gh1x4[1];
+	gh3x3[1][2] = 0;
+	gh3x3[2][0] = 0;
+	gh3x3[2][1] = 0;
+	gh3x3[2][2] = gh1x4[2];
+
+}
+
+void chs3(double gh3x3[3][3], double* gh1x4)
+{
+
+	gh1x4[0] = gh3x3[0][0];
+	gh1x4[1] = gh3x3[1][1];
+	gh1x4[2] = gh3x3[2][2];
+	gh1x4[3] = gh3x3[0][1];
+}
+
+void chsb3(double* gh1x4, double gh3x3[3][3])
+{
+	gh3x3[0][0] = gh1x4[0];
+	gh3x3[0][1] = gh1x4[3];
+	gh3x3[0][2] = 0;
+	gh3x3[1][0] = gh1x4[3];
+	gh3x3[1][1] = gh1x4[1];
+	gh3x3[1][2] = 0;
+	gh3x3[2][0] = 0;
+	gh3x3[2][1] = 0;
+	gh3x3[2][2] = gh1x4[2];
+}
+
+int i = 0;
+int j = 0;
+int k = 0;
+int m = 0;
+int n = 0;
+int q = 0;
+
+
+
+void assignment(double* new1, int n)
+{
+	for (i = 0; i < n; i++)
+	{
+		new1[i] = 0;
+	}
+}
+void assignment(double new1[][2], int n)
+{
+	for (i = 0; i < n; i++)
+	{
+		for (j = 0; j < 2; j++)
+		{
+			new1[i][j] = 0;
+		}
+	}
+}
+void assignment(double new1[][3], int n)
+{
+	for (i = 0; i < n; i++)
+	{
+		for (j = 0; j < 3; j++)
+		{
+			new1[i][j] = 0;
+		}
+	}
+}
+void assignment(double new1[][4], int n)
+{
+	for (i = 0; i < n; i++)
+	{
+		for (j = 0; j < 4; j++)
+		{
+			new1[i][j] = 0;
+		}
+	}
+}
+void assignment(double new1[][5], int n)
+{
+	for (i = 0; i < n; i++)
+	{
+		for (j = 0; j < 5; j++)
+		{
+			new1[i][j] = 0;
+		}
+	}
+}
+void assignment(double new1[][8], int n)
+{
+	for (i = 0; i < n; i++)
+	{
+		for (j = 0; j < 8; j++)
+		{
+			new1[i][j] = 0;
+		}
+	}
+}
+void assignment(double new1[8][2][2])
+{
+	for (i = 0; i < 8; i++)
+	{
+		for (j = 0; j < 2; j++)
+		{
+			for (k = 0; k < 2; k++)
+			{
+				new1[i][j][k] = 0;
+			}
+		}
+	}
+}
+void assignment(double new1[8][3][3])
+{
+	for (i = 0; i < 8; i++)
+	{
+		for (j = 0; j < 3; j++)
+		{
+			for (k = 0; k < 3; k++)
+			{
+				new1[i][j][k] = 0;
+			}
+		}
+	}
+}
+void assignment(double new1[][8][2][2], int n)
+{
+	for (m = 0; m < n; m++) {
+		for (i = 0; i < 8; i++)
+		{
+			for (j = 0; j < 2; j++)
+			{
+				for (k = 0; k < 2; k++)
+				{
+					new1[m][i][j][k] = 0;
+				}
+			}
+		}
+	}
+}
+
+double xyz0[4][2] = { {0, 1.3}, {0, 0}, {1, 0}, {1, 1} };
+double uvw0[4][2] = { {0, 0}, {0.15, 0}, {0, 0}, {0, 0} };
+int lc[4][2] = { {-1, -1}, {1, -1}, {1, 1}, {-1, 1} };
+
+int E0 = 3 * 1000;
+double mu = 0.3;
+double D0 = E0 / (1 + mu) / (1 - 2 * mu);
+
+
+
+void getDe(double De[4][4])
+{
+	De[0][0] = 1 - mu; De[0][1] = mu; De[0][2] = mu; De[0][3] = 0;
+	De[1][0] = mu; De[1][1] = 1 - mu; De[1][2] = mu; De[1][3] = 0;
+	De[2][0] = mu; De[2][1] = mu; De[2][2] = 1 - mu; De[2][3] = 0;
+	De[3][0] = 0; De[3][1] = 0; De[3][2] = 0; De[3][3] = (1 - 2 * mu) / 2;
+
+	for (j = 0; j < 4; j++) {
+		for (k = 0; k < 4; k++) {
+			De[j][k] *= D0;
+		}
+	}
+}
+
+//形函数及其导数的实现
+void getNN(double* NN, double dNN_dkk[4][2], double* kk)
+{
+
+	for (i = 0; i < 4; i++)
+	{
+		NN[i] = 1.0 / 4 * (1 + lc[i][0] * kk[0]) * (1 + lc[i][1] * kk[1]);
+	}
+
+	//形函数对局部坐标的导数
+
+	dNN_dkk[0][0] = 0.25 * (-1 + kk[1]);
+	dNN_dkk[0][1] = 0.25 * (-1 + kk[0]);
+
+	dNN_dkk[1][0] = 0.25 * (1 - kk[1]);
+	dNN_dkk[1][1] = 0.25 * (-1 - kk[0]);
+
+	dNN_dkk[2][0] = 0.25 * (1 + kk[1]);
+	dNN_dkk[2][1] = 0.25 * (1 + kk[0]);
+
+	dNN_dkk[3][0] = 0.25 * (-1 - kk[1]);
+	dNN_dkk[3][1] = 0.25 * (1 - kk[0]);
+
+}
+
+//kk函数值的实现
+void getSubsq(double subsq[][2])
+{
+	for (i = 0; i < 4; i++)
+	{
+		subsq[i][0] = lc[i][0] * 0.577350;
+		subsq[i][1] = lc[i][1] * 0.577350;
+
+	}
+}
+
+
+//计算矩阵的行列式
+double determinant(double matrix[DIMENSIONS][DIMENSIONS]) {
+	Eigen::Matrix2d gh2x2;
+	for (j = 0; j < 2; j++) {
+		for (k = 0; k < 2; k++) {
+			gh2x2(j, k) = matrix[j][k];
+		}
+	}
+
+	return gh2x2.determinant();
+}
+
+
+int getInverseMatrix(double matrix[DIMENSIONS][DIMENSIONS], double inverse[DIMENSIONS][DIMENSIONS]) {
+	double det = determinant(matrix);
+	if (det == 0) {
+		printf("矩阵不可逆！");
+		return 0; // 矩阵不可逆
+	}
+	Eigen::Matrix2d gb;
+	for (j = 0; j < 2; j++) {
+		for (k = 0; k < 2; k++) {
+			gb(j, k) = matrix[j][k];
+		}
+	}
+	Eigen::Matrix2d inverseMat = gb.inverse();
+	for (j = 0; j < 2; j++) {
+		for (k = 0; k < 2; k++) {
+			inverse[j][k] = inverseMat(j, k);
+		}
+	}
+	return 1; // 矩阵有逆
+}
+int getInverseMatrix(double matrix[5][5], double inverse[5][5]) {
+
+	Eigen::MatrixXd gb(5, 5);
+	for (j = 0; j < 5; j++) {
+		for (k = 0; k < 5; k++) {
+			gb(j, k) = matrix[j][k];
+		}
+	}
+	Eigen::MatrixXd inverseMat = gb.inverse();
+	for (j = 0; j < 5; j++) {
+		for (k = 0; k < 5; k++) {
+			inverse[j][k] = inverseMat(j, k);
+		}
+	}
+	return 1; // 矩阵有逆
+}
+
+//雅可比矩阵的计算
+void getJacobian(double dNN_dkk[NUM_NODES][DIMENSIONS], double Jac[DIMENSIONS][DIMENSIONS])
+{
+
+	//计算雅可比矩阵
+	for (i = 0; i < NUM_NODES; i++) {
+		for (j = 0; j < DIMENSIONS; j++) {
+			for (k = 0; k < DIMENSIONS; k++) {
+				Jac[k][j] += dNN_dkk[i][j] * (xyz0[i][k] + uvw0[i][k] / 2.0);
+			}
+		}
+	}
+}
+void getJacobian2(double dNN_dkk[NUM_NODES][DIMENSIONS], double Jac[DIMENSIONS][DIMENSIONS])
+{
+
+	//计算雅可比矩阵
+	for (i = 0; i < NUM_NODES; i++) {
+		for (j = 0; j < DIMENSIONS; j++) {
+			for (k = 0; k < DIMENSIONS; k++) {
+				Jac[k][j] += dNN_dkk[i][j] * (xyz0[i][k] + uvw0[i][k]);
+			}
+		}
+	}
+}
+//ul矩阵的计算
+void getul(double dNN_dkk[NUM_NODES][DIMENSIONS], double ul[DIMENSIONS][DIMENSIONS])
+{
+	//计算ul矩阵
+	for (i = 0; i < NUM_NODES; i++) {
+		for (j = 0; j < DIMENSIONS; j++) {
+			for (k = 0; k < DIMENSIONS; k++) {
+				ul[k][j] += dNN_dkk[i][j] * uvw0[i][k];
+			}
+		}
+	}
+}
+void getdul(double dNN_dkk[NUM_NODES][DIMENSIONS], double ul[DIMENSIONS][DIMENSIONS])
+{
+	//计算ul矩阵
+	for (i = 0; i < NUM_NODES; i++) {
+		for (j = 0; j < DIMENSIONS; j++) {
+			for (k = 0; k < DIMENSIONS; k++) {
+				ul[k][j] += dNN_dkk[i][j] * 1;
+			}
+		}
+	}
+}
+
+void getuldu(double  uldu[8][2][2], double dNN_dkk[4][2])
+{
+	assignment(uldu);
+	for (m = 0; m < 4; m++) {
+		for (j = 0; j < 2; j++) {
+			for (k = 0; k < 2; k++) {
+				if (j == k) {
+					for (i = 0; i < 2; i++) {
+						uldu[j + 2 * m][k][i] = dNN_dkk[m][i];
+					}
+				}
+				else {
+					for (i = 0; i < 2; i++) {
+						uldu[j][k][i] = 0;
+					}
+				}
+			}
+		}
+	}
+}
+
+void getMatXMat(double x[2][2], double y[2][2], double z[2][2])
+{
+	Eigen::Matrix2d x1;
+	for (j = 0; j < 2; j++) {
+		for (k = 0; k < 2; k++) {
+			x1(j, k) = x[j][k];
+		}
+	}
+	Eigen::Matrix2d y1;
+	for (j = 0; j < 2; j++) {
+		for (k = 0; k < 2; k++) {
+			y1(j, k) = y[j][k];
+		}
+	}
+	Eigen::Matrix2d z1;
+	z1 = x1 * y1;
+	for (j = 0; j < 2; j++) {
+		for (k = 0; k < 2; k++) {
+			z[j][k] = z1(j, k);
+		}
+	}
+}
+void getMatXMat(double x[3][3], double y[3][3], double z[3][3])
+{
+	Eigen::Matrix3d x1;
+	for (j = 0; j < 3; j++) {
+		for (k = 0; k < 3; k++) {
+			x1(j, k) = x[j][k];
+		}
+	}
+	Eigen::Matrix3d y1;
+	for (j = 0; j < 3; j++) {
+		for (k = 0; k < 3; k++) {
+			y1(j, k) = y[j][k];
+		}
+	}
+	Eigen::Matrix3d z1;
+	z1 = x1 * y1;
+	for (j = 0; j < 3; j++) {
+		for (k = 0; k < 3; k++) {
+			z[j][k] = z1(j, k);
+		}
+	}
+}
+double Id[2][2] = { {1,0},{0,1} };
+double Id3[3][3] = { {1,0,0},{0,1,0},{0,0,1} };
+double Id4[4][4] = { {1,0,0,0},{0,1,0,0},{0,0,1,0} ,{0,0,0,1} };
+
+void getEqsdle(double eqsdle[5][4], double* le, double* ep, double* depV, double dlamda)
+{
+	double sig_1 = 4038.461538 * (-depV[0] - ep[0] + le[0]) + 1730.769231 * (-depV[1] - ep[1] + le[1]) + 1730.769231 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_2 = 1730.769231 * (-depV[0] - ep[0] + le[0]) + 4038.461538 * (-depV[1] - ep[1] + le[1]) + 1730.769231 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_3 = 1730.769231 * (-depV[0] - ep[0] + le[0]) + 1730.769231 * (-depV[1] - ep[1] + le[1]) + 4038.461538 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_4 = 1153.846154 * (-depV[3] - ep[3] + le[3]);
+	double fenmu = pow(sig_1, 2) + pow(sig_2, 2) + pow(sig_3, 2) + 2 * pow(sig_4, 2);
+	double x1 = (4.0 / 3 * sig_1 - 2.0 / 3 * sig_2 - 2.0 / 3 * sig_3);
+	double x2 = (-2.0 / 3 * sig_1 + 4.0 / 3 * sig_2 - 2.0 / 3 * sig_3);
+	double x3 = (-2.0 / 3 * sig_1 - 2.0 / 3 * sig_2 + 4.0 / 3 * sig_3);
+	double y1 = -(-3076.923077 * sig_1 + 1538.461538 * sig_2 + 1538.461538 * sig_3);
+	double y2 = -(1538.461538 * sig_1 - 3076.923077 * sig_2 + 1538.461538 * sig_3);
+	double y3 = -(1538.461538 * sig_1 + 1538.461538 * sig_2 - 3076.923077 * sig_3);
+
+	eqsdle[0][0] = -((0.31 * dlamda) * x1 * y1 / pow(fenmu, 1.5)) + 1884 * dlamda / pow(fenmu, 0.5);
+	eqsdle[0][1] = -((0.31 * dlamda) * x1 * y2 / pow(fenmu, 1.5)) - 942 * dlamda / pow(fenmu, 0.5);
+	eqsdle[0][2] = -((0.31 * dlamda) * x1 * y3 / pow(fenmu, 1.5)) - 942 * dlamda / pow(fenmu, 0.5);
+	eqsdle[0][3] = -((1413.167159 * dlamda) * x1 * sig_4) / pow(fenmu, 1.5);
+
+	eqsdle[1][0] = -((0.31 * dlamda) * x2 * y1) / pow(fenmu, 1.5) - 942 * dlamda / pow(fenmu, 0.5);
+	eqsdle[1][1] = -((0.31 * dlamda) * x2 * y2 / pow(fenmu, 1.5)) + 1884 * dlamda / pow(fenmu, 0.5);
+	eqsdle[1][2] = -((0.31 * dlamda) * x2 * y3) / pow(fenmu, 1.5) - 942 * dlamda / pow(fenmu, 0.5);
+	eqsdle[1][3] = -((1413.167159 * dlamda) * x2 * sig_4) / pow(fenmu, 1.5);
+
+
+	eqsdle[2][0] = -((0.31 * dlamda) * x3 * y1) / pow(fenmu, 1.5) - 942 * dlamda / pow(fenmu, 0.5);
+	eqsdle[2][1] = -((0.31 * dlamda) * x3 * y2) / pow(fenmu, 1.5) - 942 * dlamda / pow(fenmu, 0.5);
+	eqsdle[2][2] = -((0.31 * dlamda) * x3 * y3 / pow(fenmu, 1.5)) + 1884 * dlamda / pow(fenmu, 0.5);
+	eqsdle[2][3] = -((1413.167159 * dlamda) * x3 * sig_4) / pow(fenmu, 1.5);
+
+
+	eqsdle[3][0] = -(1.224745 * dlamda * y1 * sig_4 / pow(fenmu, 1.5));
+	eqsdle[3][1] = -(1.224745 * dlamda * y2 * sig_4 / pow(fenmu, 1.5));
+	eqsdle[3][2] = -(1.224745 * dlamda * y3 * sig_4 / pow(fenmu, 1.5));
+	eqsdle[3][3] = -(5652.668637 * dlamda * pow(sig_4, 2) / pow(fenmu, 1.5)) + 2826 * dlamda / pow(fenmu, 0.5);
+
+
+	eqsdle[4][0] = 0.612372 * y1 / pow(fenmu, 0.5);
+	eqsdle[4][1] = 0.612372 * y2 / pow(fenmu, 0.5);
+	eqsdle[4][2] = 0.612372 * y3 / pow(fenmu, 0.5);
+	eqsdle[4][3] = 2826.33 * sig_4 / pow(fenmu, 0.5);
+}
+void getEqsdep(double eqsdep[5][4], double* le, double* ep, double* depV, double dlamda)
+{
+	double sig_1 = 4038.461538 * (-depV[0] - ep[0] + le[0]) + 1730.769231 * (-depV[1] - ep[1] + le[1]) + 1730.769231 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_2 = 1730.769231 * (-depV[0] - ep[0] + le[0]) + 4038.461538 * (-depV[1] - ep[1] + le[1]) + 1730.769231 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_3 = 1730.769231 * (-depV[0] - ep[0] + le[0]) + 1730.769231 * (-depV[1] - ep[1] + le[1]) + 4038.461538 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_4 = 1153.846154 * (-depV[3] - ep[3] + le[3]);
+	double fenmu = pow(sig_1, 2) + pow(sig_2, 2) + pow(sig_3, 2) + 2 * pow(sig_4, 2);
+	double x1 = (4.0 / 3 * sig_1 - 2.0 / 3 * sig_2 - 2.0 / 3 * sig_3);
+	double x2 = (-2.0 / 3 * sig_1 + 4.0 / 3 * sig_2 - 2.0 / 3 * sig_3);
+	double x3 = (-2.0 / 3 * sig_1 - 2.0 / 3 * sig_2 + 4.0 / 3 * sig_3);
+	double y1 = (-3076.923077 * sig_1 + 1538.461538 * sig_2 + 1538.461538 * sig_3);
+	double y2 = (1538.461538 * sig_1 - 3076.923077 * sig_2 + 1538.461538 * sig_3);
+	double y3 = (1538.461538 * sig_1 + 1538.461538 * sig_2 - 3076.923077 * sig_3);
+
+	eqsdep[0][0] = -((0.31 * dlamda) * x1 * y1 / pow(fenmu, 1.5)) - 1884 * dlamda / pow(fenmu, 0.5);
+	eqsdep[0][1] = -((0.31 * dlamda) * x1 * y2 / pow(fenmu, 1.5)) + 942 * dlamda / pow(fenmu, 0.5);
+	eqsdep[0][2] = -((0.31 * dlamda) * x1 * y3 / pow(fenmu, 1.5)) + 942 * dlamda / pow(fenmu, 0.5);
+	eqsdep[0][3] = ((1413.167159 * dlamda) * x1 * sig_4) / pow(fenmu, 1.5);
+
+	eqsdep[1][0] = -((0.31 * dlamda) * x2 * y1) / pow(fenmu, 1.5) + 942 * dlamda / pow(fenmu, 0.5);
+	eqsdep[1][1] = -((0.31 * dlamda) * x2 * y2 / pow(fenmu, 1.5)) - 1884 * dlamda / pow(fenmu, 0.5);
+	eqsdep[1][2] = -((0.31 * dlamda) * x2 * y3) / pow(fenmu, 1.5) + 942 * dlamda / pow(fenmu, 0.5);
+	eqsdep[1][3] = ((1413.167159 * dlamda) * x2 * sig_4) / pow(fenmu, 1.5);
+
+
+	eqsdep[2][0] = -((0.31 * dlamda) * x3 * y1) / pow(fenmu, 1.5) + 942 * dlamda / pow(fenmu, 0.5);
+	eqsdep[2][1] = -((0.31 * dlamda) * x3 * y2) / pow(fenmu, 1.5) + 942 * dlamda / pow(fenmu, 0.5);
+	eqsdep[2][2] = -((0.31 * dlamda) * x3 * y3 / pow(fenmu, 1.5)) - 1884 * dlamda / pow(fenmu, 0.5);
+	eqsdep[2][3] = ((1413.167159 * dlamda) * x3 * sig_4) / pow(fenmu, 1.5);
+
+
+	eqsdep[3][0] = -(1.224745 * dlamda * y1 * sig_4 / pow(fenmu, 1.5));
+	eqsdep[3][1] = -(1.224745 * dlamda * y2 * sig_4 / pow(fenmu, 1.5));
+	eqsdep[3][2] = -(1.224745 * dlamda * y3 * sig_4 / pow(fenmu, 1.5));
+	eqsdep[3][3] = (5652.668637 * dlamda * pow(sig_4, 2) / pow(fenmu, 1.5)) - 2826 * dlamda / pow(fenmu, 0.5);
+
+
+	eqsdep[4][0] = 0.612372 * y1 / pow(fenmu, 0.5);
+	eqsdep[4][1] = 0.612372 * y2 / pow(fenmu, 0.5);
+	eqsdep[4][2] = 0.612372 * y3 / pow(fenmu, 0.5);
+	eqsdep[4][3] = -2826.33 * sig_4 / pow(fenmu, 0.5);
+}
+void dmaterial(double eqsdvar[5][5], double* le, double* ep, double peeq, double* depV, double dlamda)
+{
+	double sig_1 = 4038.461538 * (-depV[0] - ep[0] + le[0]) + 1730.769231 * (-depV[1] - ep[1] + le[1]) + 1730.769231 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_2 = 1730.769231 * (-depV[0] - ep[0] + le[0]) + 4038.461538 * (-depV[1] - ep[1] + le[1]) + 1730.769231 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_3 = 1730.769231 * (-depV[0] - ep[0] + le[0]) + 1730.769231 * (-depV[1] - ep[1] + le[1]) + 4038.461538 * (-depV[2] - ep[2] + le[2]) + 1.0 / 3 * (-7500 * (-depV[0] - ep[0] + le[0] - depV[1] - ep[1] + le[1] - depV[2] - ep[2] + le[2]));
+	double sig_4 = 1153.846154 * (-depV[3] - ep[3] + le[3]);
+	double fenmu = pow(sig_1, 2) + pow(sig_2, 2) + pow(sig_3, 2) + 2 * pow(sig_4, 2);
+	double x1 = (4.0 / 3 * sig_1 - 2.0 / 3 * sig_2 - 2.0 / 3 * sig_3);
+	double x2 = (-2.0 / 3 * sig_1 + 4.0 / 3 * sig_2 - 2.0 / 3 * sig_3);
+	double x3 = (-2.0 / 3 * sig_1 - 2.0 / 3 * sig_2 + 4.0 / 3 * sig_3);
+	double y1 = (-3076.923077 * sig_1 + 1538.461538 * sig_2 + 1538.461538 * sig_3);
+	double y2 = (1538.461538 * sig_1 - 3076.923077 * sig_2 + 1538.461538 * sig_3);
+	double y3 = (1538.461538 * sig_1 + 1538.461538 * sig_2 - 3076.923077 * sig_3);
+	eqsdvar[0][0] = -1 - ((0.306186 * dlamda) * x1 * y1 / pow(fenmu, 1.5)) - 1884.222879 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[0][1] = -((0.306186 * dlamda) * x1 * y2) / pow(fenmu, 1.5) + 942.111440 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[0][2] = -((0.306186 * dlamda) * x1 * y3) / pow(fenmu, 1.5) + 942.111440 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[0][3] = ((1413.167159 * dlamda) * x1 * sig_4) / pow(fenmu, 1.5);
+	eqsdvar[0][4] = 0.61237223724 * x1 / pow(fenmu, 0.5);
+
+	eqsdvar[1][0] = -((0.306186 * dlamda) * x2 * y1) / pow(fenmu, 1.5) + 942.111440 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[1][1] = -1 - ((0.306186 * dlamda) * x2 * y2 / pow(fenmu, 1.5)) - 1884.222879 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[1][2] = -((0.306186 * dlamda) * x2 * y3) / pow(fenmu, 1.5) + 942.111440 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[1][3] = ((1413.167159 * dlamda) * x2 * sig_4) / pow(fenmu, 1.5);
+	eqsdvar[1][4] = 0.61237223724 * x2 / pow(fenmu, 0.5);
+
+	eqsdvar[2][0] = -((0.306186 * dlamda) * x3 * y1) / pow(fenmu, 1.5) + 942.111440 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[2][1] = -((0.306186 * dlamda) * x3 * y2) / pow(fenmu, 1.5) + 942.111440 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[2][2] = -1 - ((0.306186 * dlamda) * x3 * y3 / pow(fenmu, 1.5)) - 1884.222879 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[2][3] = ((1413.167159 * dlamda) * x3 * sig_4) / pow(fenmu, 1.5);
+	eqsdvar[2][4] = 0.61237223724 * x3 / pow(fenmu, 0.5);
+
+	eqsdvar[3][0] = -(1.224745 * dlamda * y1 * sig_4 / pow(fenmu, 1.5));
+	eqsdvar[3][1] = -(1.224745 * dlamda * y2 * sig_4 / pow(fenmu, 1.5));
+	eqsdvar[3][2] = -(1.224745 * dlamda * y3 * sig_4 / pow(fenmu, 1.5));
+	eqsdvar[3][3] = -1 + (5652.668637 * dlamda * pow(sig_4, 2) / pow(fenmu, 1.5)) - 2826.3343186 * dlamda / pow(fenmu, 0.5);
+	eqsdvar[3][4] = 2.449490 * sig_4 / pow(fenmu, 0.5);
+
+	double z0 = 1.0 / 3 * (-depV[0] - depV[1] - depV[2]);
+	double z01 = (depV[0] + z0);
+	double z02 = (depV[1] + z0);
+	double z03 = (depV[2] + z0);
+	double z1 = 4.0 / 3 * z01 - 2.0 / 3 * z02 - 2.0 / 3 * z03;
+	double z2 = -2.0 / 3 * z01 + 4.0 / 3 * z02 - 2.0 / 3 * z03;
+	double z3 = -2.0 / 3 * z01 - 2.0 / 3 * z02 + 4.0 / 3 * z03;
+	double fenmu2 = pow(z01, 2) + pow(z02, 2) + pow(z03, 2) + 0.5 * pow(depV[3], 2);
+	eqsdvar[4][0] = -((40.824829 * z1) / pow(fenmu2, 0.5)) + (0.612372 * y1) / pow(fenmu, 0.5);
+	eqsdvar[4][1] = -((40.824829 * z2) / pow(fenmu2, 0.5)) + (0.612372 * y2) / pow(fenmu, 0.5);
+	eqsdvar[4][2] = -((40.824829 * z3) / pow(fenmu2, 0.5)) + (0.612372 * y3) / pow(fenmu, 0.5);
+	eqsdvar[4][3] = -((40.824829 * depV[3]) / pow(fenmu2, 0.5)) - (2826.3343186 * sig_4) / pow(fenmu, 0.5);
+	eqsdvar[4][4] = 0;
+
+}
+void getDirec(double* sig01V, double* direc)
+{
+	double fenmu = 0;
+	double a0 = 1.0 / 3 * (-sig01V[0] - sig01V[1] - sig01V[2]);
+	double a1 = sig01V[0] + a0;
+	double a2 = sig01V[1] + a0;
+	double a3 = sig01V[2] + a0;
+	double a4 = 2 * (pow(sig01V[3], 2));
+	fenmu = sqrt(pow(a1, 2) + pow(a2, 2) + pow(a3, 2) + a4);
+
+	direc[0] = (4.0 / 3 * a1 - 2.0 / 3 * a2 - 2.0 / 3 * a3) * 0.612372 / fenmu;
+	direc[1] = (-2.0 / 3 * a1 + 4.0 / 3 * a2 - 2.0 / 3 * a3) * 0.612372 / fenmu;
+	direc[2] = (-2.0 / 3 * a1 - 2.0 / 3 * a2 + 4.0 / 3 * a3) * 0.612372 / fenmu;
+	direc[3] = 2.44949 * sig01V[3] / fenmu;
+
+
+}
+void getSig(double* x, double y[4][4], double* z)
+{
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			z[i] += y[i][j] * x[j]; // 按照矩阵乘法规则累加
+		}
+	}
+}
+void material(double* le, double* ep, double peeq, double* depVdlamda, double* eq, double eqsdvar[5][5], double* sig01V, double& peeq01)
+{
+	double depV[4] = { 0 };
+	double dlamda = depVdlamda[4];
+	for (j = 0; j < 4; j++) {
+		depV[j] = depVdlamda[j];
+	}
+
+	double ee[4] = { 0 };
+	for (j = 0; j < 4; j++) {
+		ee[j] = le[j] - ep[j] - depV[j];
+	}
+	double De[4][4] = { 0 };
+	getDe(De);
+
+	double sig01[3][3] = { 0 };
+	getSig(ee, De, sig01V);
+	chsb3(sig01V, sig01);
+
+	double p = (-1.0 / 3) * (sig01[0][0] + sig01[1][1] + sig01[2][2]);
+	double S[3][3] = { 0 };
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			S[i][j] = sig01[i][j] + p * Id3[i][j];
+		}
+	}
+	double E1[3][3] = { 0 };
+	double dep[3][3] = { 0 };
+
+	chb3(depV, dep);
+	double pe = (-1.0 / 3) * (dep[0][0] + dep[1][1] + dep[2][2]);
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			E1[i][j] = dep[i][j] - pe * Id3[i][j];
+		}
+	}
+	double q = 0;
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			q += S[i][j] * S[i][j];
+		}
+	}
+	q = sqrt(3.0 / 2 * q);
+
+	double direc[4] = { 0 };
+	getDirec(sig01V, direc);
+
+	double dpeeq = 0;
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			dpeeq += E1[i][j] * E1[i][j];
+		}
+	}
+	dpeeq = sqrt(2.0 / 3 * dpeeq);
+
+	for (j = 0; j < 4; j++) {
+		eq[j] = dlamda * direc[j] - depV[j];
+	}
+	eq[4] = q - (100 * (peeq + dpeeq) + 50);
+
+	dmaterial(eqsdvar, le, ep, peeq, depV, dlamda);
+
+	peeq01 = peeq + dpeeq;
+
+}
+void newton(double* le, double* ep, double peeq, double* depVdlamda, double inJac0[5][5], double* sigV, double& peeq1)
+{
+	double x_current[5] = { 0 };
+	for (k = 0; k < 5; k++) {
+		x_current[k] = 0.000001;
+	}
+	double eq[5] = { 0 };
+	double eqsdvar[5][5] = { 0 };
+	double sig01V[4] = { 0 };
+	double peeq01 = 0;
+	material(le, ep, peeq, x_current, eq, eqsdvar, sig01V, peeq01);
+	double tolerance = 0.000001;
+	double x_next[5] = { 0 };
+	int it_count = 0;
+	double Res[5] = { 0 };
+	double Res_norm = 0;
+	double dds[5] = { 0 };
+	double Jac[5][5] = { 0 };
+
+	double inJac[5][5] = { 0 };
+
+	while (it_count < 10)
+	{
+		Res_norm = 0;
+		for (i = 0; i < 5; i++) {
+			for (j = 0; j < 5; j++) {
+				Jac[i][j] = eqsdvar[i][j];
+			}
+		}
+
+		getInverseMatrix(Jac, inJac);
+
+
+
+		for (j = 0; j < 5; j++) {
+			Res[j] = 0 - eq[j];
+			Res_norm += pow(Res[j], 2);
+		}
+
+		Res_norm = pow(Res_norm, 0.5);
+
+		if (Res_norm <= tolerance)
+		{
+
+			break;
+		}
+		for (i = 0; i < 5; i++) {
+			for (j = 0; j < 5; j++) {
+				dds[i] += inJac[i][j] * Res[j];
+			}
+		}
+
+		for (i = 0; i < 5; i++) {
+			x_current[i] += dds[i];
+		}
+		assignment(eq, 5);
+		assignment(eqsdvar, 5);
+		assignment(sig01V, 4);
+		peeq01 = 0;
+		material(le, ep, peeq, x_current, eq, eqsdvar, sig01V, peeq01);
+
+		Res_norm = 0;
+		assignment(dds, 5);
+		it_count++;
+	}
+
+	for (i = 0; i < 5; i++) {
+		depVdlamda[i] = x_current[i];
+	}
+
+	for (i = 0; i < 5; i++) {
+		for (j = 0; j < 5; j++) {
+			inJac0[i][j] = inJac[i][j];
+		}
+	}
+
+	for (i = 0; i < 4; i++) {
+		sigV[i] = sig01V[i];
+	}
+
+	peeq1 = peeq01;
+
+}
+void getK(double sigdle[4][4], double sigdep[4][4], double* depVdlamda, double* le, double* ep, double inJac0[5][5])
+{
+	double De[4][4] = { 0 };
+	getDe(De);
+	double depV[4] = { 0 };
+	double dlamda = depVdlamda[4];
+	for (j = 0; j < 4; j++) {
+		depV[j] = depVdlamda[j];
+	}
+	double eqsdle[5][4] = { 0 };
+	double eqsdep[5][4] = { 0 };
+	getEqsdle(eqsdle, le, ep, depV, dlamda);
+	getEqsdep(eqsdep, le, ep, depV, dlamda);
+
+
+	double depdle[5][4] = { 0 };
+	double depdep[5][4] = { 0 };
+	for (i = 0; i < 5; i++) {
+		for (j = 0; j < 4; j++) {
+			for (k = 0; k < 5; k++) {
+				depdle[i][j] += inJac0[i][k] * (-eqsdle[k][j]);
+			}
+		}
+	}
+	for (i = 0; i < 5; i++) {
+		for (j = 0; j < 4; j++) {
+			for (k = 0; k < 5; k++) {
+				depdep[i][j] += inJac0[i][k] * (-eqsdep[k][j]);
+			}
+		}
+	}
+
+
+
+
+	double temp1[4][4] = { 0 };
+	double temp2[4][4] = { 0 };
+
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			temp1[i][j] = Id4[i][j] - depdle[i][j];
+		}
+	}
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			for (k = 0; k < 4; k++) {
+				sigdle[i][j] += De[i][k] * temp1[k][j];
+			}
+		}
+	}
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			temp2[i][j] = -Id4[i][j] - depdep[i][j];
+		}
+	}
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
+			for (k = 0; k < 4; k++) {
+				sigdep[i][j] += De[i][k] * temp2[k][j];
+			}
+		}
+	}
+}
+void getSig2(double* le, double* ep, double peeq, double* sigV, double* ep1, double& peeq1, double sigdle[4][4], double sigdep[4][4])
+{
+
+	double ee0[4] = { 0 };
+	for (j = 0; j < 4; j++) {
+		ee0[j] = le[j] - ep[j];
+	}
+	double De[4][4] = { 0 };
+	getDe(De);
+	double sig0V[4] = { 0 };
+	double sig0[3][3] = { 0 };
+	getSig(ee0, De, sig0V);
+	chsb3(sig0V, sig0);
+
+	double sigma_s = 100 * peeq + 50;
+	double p = (-1.0 / 3) * (sig0[0][0] + sig0[1][1] + sig0[2][2]);
+	double S0[3][3] = { 0 };
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			S0[i][j] = sig0[i][j] + p * Id3[i][j];
+		}
+	}
+	double q0 = 0;
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			q0 += S0[i][j] * S0[i][j];
+		}
+	}
+	q0 = sqrt(3.0 / 2 * q0);
+	if ((q0 - sigma_s) <= 0)
+	{
+		for (j = 0; j < 4; j++) {
+			sigV[j] = sig0V[j];
+			ep1[j] = ep[j];
+		}
+		peeq1 = peeq;
+		for (i = 0; i < 4; i++) {
+			for (j = 0; j < 4; j++) {
+				sigdle[i][j] = De[i][j];
+			}
+		}
+		for (i = 0; i < 4; i++) {
+			for (j = 0; j < 4; j++) {
+				sigdep[i][j] = -(De[i][j]);
+			}
+		}
+	}
+	else
+	{
+		double depVdlamda[5] = { 0 };
+		double inJac0[5][5] = { 0 };
+		newton(le, ep, peeq, depVdlamda, inJac0, sigV, peeq1);
+		getK(sigdle, sigdep, depVdlamda, le, ep, inJac0);
+
+		for (j = 0; j < 4; j++) {
+			ep1[j] = ep[j] + depVdlamda[j];
+		}
+	}
+
+}
+
+
+
+
+
+void transposeMatrix(double matrix[2][2], double transposed[2][2])
+{
+	for (i = 0; i < 2; i++) {
+		for (j = 0; j < 2; j++) {
+			transposed[j][i] = matrix[i][j];
+		}
+	}
+}
+
+
+double devStrain[2][2] = { 0 };
+double TrStrain = 0;
+double udp[2][2] = { 0 };
+
+double IdStdu[8] = { 0 };
+double devStraindu[8][2][2] = { 0 };
+double devStraindu0[8][2][2] = { 0 };
+void getisiw(double& udpA1, double* udpdA, double is[2][2], double isdu[8][2][2], double& detJac, double* detJacdu)
+{
+	assignment(devStrain, 2);
+	TrStrain = 0;
+	assignment(udp, 2);
+	assignment(IdStdu, 8);
+	assignment(devStraindu0);
+	assignment(devStraindu);
+
+	TrStrain = is[0][0] + is[1][1];
+	for (i = 0; i < 2; i++) {
+		for (j = 0; j < 2; j++) {
+			if (i == j)
+			{
+				udp[i][j] = TrStrain / 2.0;
+			}
+		}
+	}
+
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				IdStdu[m] += Id[i][k] * isdu[m][i][k];
+			}
+		}
+	}
+	for (i = 0; i < 2; i++) {
+		for (j = 0; j < 2; j++) {
+			devStrain[i][j] = is[i][j] - udp[i][j];
+		}
+	}
+
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				devStraindu0[m][i][k] += IdStdu[m] * Id[i][k];
+			}
+		}
+	}
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				devStraindu[m][i][k] = isdu[m][i][k] - (1.0 / 3) * devStraindu0[m][i][k];
+			}
+		}
+	}
+	double udpdu[8] = { 0 };
+	for (m = 0; m < 8; m++) {
+		udpdu[m] = IdStdu[m] * (1.0 / 2);
+	}
+
+
+	for (m = 0; m < 8; m++) {
+		udpdA[m] = udpdu[m] * detJac + udp[1][1] * detJacdu[m];
+
+	}
+
+	for (m = 0; m < 8; m++) {
+		udpA1 = TrStrain / 2.0 * detJac;
+	}
+}
+void divM(double ingb[2][2], double ingbdgb[2][2][2][2])
+{
+	for (i = 0; i < 2; i++)
+	{
+		for (j = 0; j < 2; j++)
+		{
+			for (k = 0; k < 2; k++)
+			{
+				for (m = 0; m < 2; m++)
+				{
+					ingbdgb[m][i][k][j] = -ingb[i][j] * ingb[k][m];
+				}
+			}
+
+		}
+	}
+
+}
+void divM(double ingb[3][3], double ingbdgb[3][3][3][3])
+{
+	for (i = 0; i < 3; i++)
+	{
+		for (j = 0; j < 3; j++)
+		{
+			for (k = 0; k < 3; k++)
+			{
+				for (m = 0; m < 3; m++)
+				{
+					ingbdgb[m][i][k][j] = -ingb[i][j] * ingb[k][m];
+				}
+			}
+
+		}
+	}
+
+}
+double subsq[4][2] = { 0 };
+double udpA1[4] = { 0 };
+double udpdA[4][8] = { 0 };
+double udpA1w[4] = { 0 };
+double udpdAw[4][8] = { 0 };
+double Jacdu[4][8][2][2] = { 0 };
+double detJacdJac[2][2] = { 0 };
+double inJacT[2][2] = { 0 };
+double IJacdu[4][8][2][2] = { 0 };
+void gaussIntegrateDA(double& gaussDA, double& gaussudpA1, double* gaussudpdA, double* gaussdAdu, double& gaussudpA1w, double* gaussudpdAw, double NN[4][4], double dNN_dkk[4][4][2], double Jac[4][2][2], double ul[4][2][2], double* detJac, double uldu[4][8][2][2], double inJac[4][2][2], double isl[4][2][2], double islT[4][2][2], double is[4][2][2], double iw[4][2][2], double isldu[4][8][2][2], double isdu[4][8][2][2], double iwdu[4][8][2][2], double detJacdu[4][8])
+{
+	assignment(subsq, 4);
+	assignment(udpA1, 4);
+	assignment(udpdA, 4);
+	assignment(udpA1, 4);
+	assignment(udpdAw, 4);
+	assignment(Jacdu, 4);
+	assignment(IJacdu, 4);
+
+	double IJacdJac[4][2][2][2][2] = { 0 };
+
+	getSubsq(subsq);
+	for (q = 0; q < 4; q++) {
+		assignment(detJacdJac, 2);
+		assignment(inJacT, 2);
+		getNN(NN[q], dNN_dkk[q], subsq[q]);
+		getJacobian(dNN_dkk[q], Jac[q]);
+		getul(dNN_dkk[q], ul[q]);
+		getInverseMatrix(Jac[q], inJac[q]);
+		//计算雅可比行列式
+		detJac[q] = determinant(Jac[q]);
+
+		//计算uldu
+		getuldu(uldu[q], dNN_dkk[q]);
+
+		//计算xmldu
+
+		for (m = 0; m < 8; m++) {
+			for (i = 0; i < 2; i++) {
+				for (j = 0; j < 2; j++) {
+					Jacdu[q][m][i][j] = uldu[q][m][i][j] / 2;
+
+				}
+			}
+		}
+		
+		divM(inJac[q], IJacdJac[q]);
+		for (m = 0; m < 8; m++) {
+			for (i = 0; i < 2; i++) {
+				for (j = 0; j < 2; j++) {
+					for (k = 0; k < 2; k++) {
+						for (n = 0; n < 2; n++) {
+							IJacdu[q][m][i][j] += IJacdJac[q][k][n][i][j] * Jacdu[q][m][k][n];
+
+						}
+					}
+
+				}
+			}
+
+		}
+		transposeMatrix(inJac[q], inJacT);
+		//计算行列式的导数
+
+		for (i = 0; i < 2; i++) {
+			for (j = 0; j < 2; j++) {
+				detJacdJac[i][j] = detJac[q] * inJacT[i][j];
+
+			}
+		}
+		for (n = 0; n < 8; n++) {
+			for (i = 0; i < 2; i++) {
+				for (j = 0; j < 2; j++) {
+					detJacdu[q][n] += detJacdJac[i][j] * Jacdu[q][n][i][j];
+				}
+			}
+		}
+
+
+		getMatXMat(ul[q], inJac[q], isl[q]);
+		transposeMatrix(isl[q], islT[q]);
+
+
+		for (m = 0; m < 8; m++) {
+			for (i = 0; i < 2; i++) {
+				for (k = 0; k < 2; k++) {
+					for (j = 0; j < 2; j++) {
+						isldu[q][m][i][k] += uldu[q][m][i][j] * inJac[q][j][k] + ul[q][i][j] * IJacdu[q][m][j][k];
+
+					}
+
+				}
+
+			}
+
+		}
+
+		for (i = 0; i < 2; i++) {
+			for (j = 0; j < 2; j++) {
+				is[q][i][j] = (isl[q][i][j] + islT[q][i][j]) / 2.0;
+			}
+		}
+
+
+		for (m = 0; m < 8; m++) {
+			for (i = 0; i < 2; i++) {
+				for (k = 0; k < 2; k++) {
+					isdu[q][m][i][k] = 0.5 * (isldu[q][m][i][k] + isldu[q][m][k][i]);
+
+				}
+			}
+
+		}
+
+		for (i = 0; i < 2; i++) {
+			for (j = 0; j < 2; j++) {
+				iw[q][i][j] = (isl[q][i][j] - islT[q][i][j]) / 2.0;
+			}
+		}
+		for (m = 0; m < 8; m++) {
+			for (i = 0; i < 2; i++) {
+				for (k = 0; k < 2; k++) {
+					iwdu[q][m][i][k] = 0.5 * (isldu[q][m][i][k] - isldu[q][m][k][i]);
+				}
+			}
+		}
+
+		getisiw(udpA1[q], udpdA[q], is[q], isdu[q], detJac[q], detJacdu[q]);
+		getisiw(udpA1w[q], udpdAw[q], iw[q], iwdu[q], detJac[q], detJacdu[q]);
+
+	}
+
+
+	for (i = 0; i < 4; i++) {
+		gaussDA += detJac[i];
+	}
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 8; j++) {
+			gaussdAdu[j] += detJacdu[i][j];
+		}
+	}
+	for (i = 0; i < 4; i++) {
+		gaussudpA1 += udpA1[i];
+	}
+
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 8; j++) {
+			gaussudpdA[j] += udpdA[i][j];
+		}
+	}
+
+	for (i = 0; i < 4; i++) {
+		gaussudpA1w += udpA1w[i];
+	}
+
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 8; j++) {
+			gaussudpdAw[j] += udpdAw[i][j];
+		}
+	}
+
+
+}
+
+
+void CPE4Adjustdu(double strain[2][2], double dA, double straindu[8][2][2], double* dAdu, double isa[2][2], double isadu[8][2][2], double& gaussDA, double* gaussdAdu, double& gaussudpA1, double* gaussudpdA)
+{
+	double devStrain[2][2] = { 0 };
+	double TrStrain = strain[0][0] + strain[1][1];
+	double udp[2][2] = { 0 };
+	for (i = 0; i < 2; i++) {
+		for (j = 0; j < 2; j++) {
+			if (i == j)
+			{
+				udp[i][j] = TrStrain / 2.0;
+			}
+		}
+	}
+
+	double IdStdu[8] = { 0 };
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				IdStdu[m] += Id[i][k] * straindu[m][i][k];
+
+			}
+		}
+	}
+	for (i = 0; i < 2; i++) {
+		for (j = 0; j < 2; j++) {
+			devStrain[i][j] = strain[i][j] - udp[i][j];
+		}
+	}
+
+	double devStraindu[8][2][2] = { 0 };
+	double devStraindu0[8][2][2] = { 0 };
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				devStraindu0[m][i][k] += IdStdu[m] * Id[i][k];
+			}
+		}
+	}
+
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				devStraindu[m][i][k] = straindu[m][i][k] - (1.0 / 2) * devStraindu0[m][i][k];
+			}
+		}
+	}
+
+	double udpdu[8] = { 0 };
+
+	for (m = 0; m < 8; m++) {
+		udpdu[m] = IdStdu[m] * (1.0 / 2);
+
+	}
+
+	double udpdA[8] = { 0 };
+	for (m = 0; m < 8; m++) {
+		udpdA[m] = udpdu[m] * dA + udp[1][1] * dAdu[m];
+
+	}
+
+	double udpdAdA[8] = { 0 };
+	for (j = 0; j < 8; j++) {
+		udpdAdA[j] = (gaussudpdA[j] * gaussDA - gaussudpA1 * gaussdAdu[j]) / gaussDA / gaussDA;
+	}
+	double udpA = 0;
+	udpA = gaussudpA1 / gaussDA;
+
+	double IdudpA[2][2] = { 0 };
+	for (i = 0; i < 2; i++) {
+		for (k = 0; k < 2; k++) {
+			IdudpA[i][k] += udpA * Id[i][k];
+		}
+	}
+
+	for (i = 0; i < 2; i++) {
+		for (j = 0; j < 2; j++) {
+			isa[i][j] = devStrain[i][j] + IdudpA[i][j];
+		}
+	}
+	double IdudpdAdA[8][2][2] = { 0 };
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				IdudpdAdA[m][i][k] += udpdAdA[m] * Id[i][k];
+			}
+		}
+	}
+
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				isadu[m][i][k] = devStraindu[m][i][k] + IdudpdAdA[m][i][k];
+			}
+		}
+	}
+
+}
+void getiR(double iRm[3][3], double iRdu[8][2][2], double iRTdu[8][2][2], double iwam[3][3], double iwadu[8][2][2])
+{
+
+	double iR1m[3][3] = { 0 };
+	double IiR1[3][3] = { 0 };
+	double iR2m[3][3] = { 0 };
+	double iR1du[8][2][2] = { 0 };
+	double iR2du[8][2][2] = { 0 };
+	double IiR1diR1[3][3][3][3] = { 0 };
+	double IiR1du[8][2][2] = { 0 };
+
+	for (i = 0; i < 3; i++) {
+		for (k = 0; k < 3; k++) {
+			iR1m[i][k] = Id3[i][k] - iwam[i][k] / 2.0;
+
+		}
+	}
+	Eigen::Matrix3d iR1m_;
+	for (i = 0; i < 3; i++) {
+		for (k = 0; k < 3; k++) {
+			iR1m_(i, k) = iR1m[i][k];
+		}
+	}
+	iR1m_.inverse();
+	for (i = 0; i < 3; i++) {
+		for (k = 0; k < 3; k++) {
+			IiR1[i][k] = iR1m_(i, k);
+		}
+	}
+	for (i = 0; i < 3; i++) {
+		for (k = 0; k < 3; k++) {
+			iR2m[i][k] = Id3[i][k] + iwam[i][k] / 2.0;
+
+		}
+	}
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			for (k = 0; k < 3; k++) {
+				iRm[i][j] += IiR1[i][k] * iR2m[k][j];
+
+			}
+		}
+	}
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < 2; j++) {
+			for (k = 0; k < 2; k++) {
+				iR1du[i][j][k] = -0.5 * iwadu[i][j][k];
+			}
+		}
+	}
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < 2; j++) {
+			for (k = 0; k < 2; k++) {
+				iR2du[i][j][k] = 0.5 * iwadu[i][j][k];
+			}
+		}
+	}
+	divM(IiR1, IiR1diR1);
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (j = 0; j < 2; j++) {
+				for (k = 0; k < 2; k++) {
+					for (n = 0; n < 2; n++) {
+						IiR1du[m][i][j] += IiR1diR1[k][n][i][j] * iR1du[m][k][n];
+
+					}
+				}
+
+			}
+		}
+	}
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				for (j = 0; j < 2; j++) {
+					iRdu[m][i][k] += IiR1du[m][i][j] * iR2m[j][k] + IiR1[i][j] * iR2du[m][j][k];
+
+				}
+
+			}
+
+		}
+	}
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < 2; j++) {
+			for (k = 0; k < 2; k++) {
+				iRTdu[i][j][k] = iRdu[i][k][j];
+			}
+		}
+	}
+
+
+}
+double isa[2][2] = { 0 };
+double isam[3][3] = { 0 };
+double isadu[8][2][2] = { 0 };
+double iwa[2][2] = { 0 };
+double iwam[3][3] = { 0 };
+double iwadu[8][2][2] = { 0 };
+double iRm[3][3] = { 0 };
+double iRmT[3][3] = { 0 };
+double iRdu[8][2][2] = { 0 };
+double iRTdu[8][2][2] = { 0 };
+
+double epm[3][3] = { 0 };
+double ledu[8][2][2] = { 0 };
+double epdu[8][2][2] = { 0 };
+double leVm[4] = { 0 };
+double leduV[8][3] = { 0 };
+double leduVm[8][4] = { 0 };
+double epVm[4] = { 0 };
+double epduV[8][3] = { 0 };
+double epduVm[8][4] = { 0 };
+
+double Jac2[2][2] = { 0 };
+double inJac2[2][2] = { 0 };
+double inJac2T[2][2] = { 0 };
+double dul[2][2] = { 0 };
+double detJac2 = 0;
+
+double IJac2du[8][2][2] = { 0 };
+double dulddu[8][2][2] = { 0 };
+double Jac2du[8][2][2] = { 0 };
+double detJac2dJac2[2][2] = { 0 };
+double detJac2du[8] = { 0 };
+double duxddu[8][2][2] = { 0 };
+double duxisddu[8][2][2] = { 0 };
+double duxduddu[8][8][2][2] = { 0 };
+double duxisduddu[8][8][2][2] = { 0 };
+double sigVm[4] = { 0 };
+double sigduV[8][4] = { 0 };
+
+double sigdu[8][3][3] = { 0 };
+
+double temp[8] = { 0 };
+double a[2][2] = { 0 };
+double aV[3] = { 0 };
+double temp01[3][3] = { 0 };
+double temp02[3][3] = { 0 };
+double temp03[3][3] = { 0 };
+void CPE4(double lem[3][3], double sigm[3][3], double peeq0, double* ep1V, double& peeq1, double leu[3][3], double ep0[3][3], double De[4][4], double xy0[4][2], double uv0[4][2], double* kk, double* virwork, double dvirwork[8][8], double& gaussDA, double* gaussdAdu, double& gaussudpA1, double* gaussudpdA, double& gaussudpA1w, double* gaussudpdAw, double* NN, double dNN_dkk[4][2], double Jac[2][2], double ul[2][2], double& detJac, double uldu[8][2][2], double inJac[2][2], double isl[2][2], double islT[2][2], double is[2][2], double iw[2][2], double isldu[8][2][2], double isdu[8][2][2], double iwdu[8][2][2], double* detJacdu)
+{
+	double IJac2dJac2[2][2][2][2] = { 0 };
+	assignment(sigVm, 4);
+	assignment(sigduV, 8);
+
+	assignment(sigdu);
+	assignment(Jac2, 2);
+	assignment(inJac2, 2);
+	assignment(inJac2T, 2);
+	assignment(dul, 2);
+	detJac2 = 0;
+	assignment(IJac2du);
+	assignment(dulddu);
+	assignment(Jac2du);
+	assignment(detJac2dJac2, 2);
+	assignment(detJac2du, 8);
+	assignment(duxddu);
+	assignment(duxisddu);
+	assignment(duxduddu, 8);
+	assignment(duxisduddu, 8);
+
+	assignment(isa, 2);
+	assignment(iwa, 2);
+	assignment(isam, 3);
+	assignment(iwam, 3);
+	assignment(iRm, 3);
+	assignment(iRmT, 3);
+
+	assignment(epm, 2);
+	assignment(leVm, 4);
+	assignment(epVm, 4);
+	assignment(ledu);
+	assignment(epdu);
+	assignment(leduV, 8);
+	assignment(epduV, 8);
+	assignment(leduVm, 8);
+	assignment(epduVm, 8);
+	assignment(isadu);
+	assignment(iwadu);
+	assignment(iRdu);
+	assignment(iRTdu);
+
+	assignment(a, 2);
+	assignment(aV, 3);
+	assignment(temp01, 3);
+	assignment(temp02, 3);
+	assignment(temp03, 3);
+	assignment(temp, 8);
+	CPE4Adjustdu(is, detJac, isdu, detJacdu, isa, isadu, gaussDA, gaussdAdu, gaussudpA1, gaussudpdA);
+	CPE4Adjustdu(iw, detJac, iwdu, detJacdu, iwa, iwadu, gaussDA, gaussdAdu, gaussudpA1w, gaussudpdAw);
+
+	isam[0][0] = isa[0][0]; isam[0][1] = isa[0][1]; isam[0][2] = 0;
+	isam[1][0] = isa[1][0]; isam[1][1] = isa[1][1]; isam[1][2] = 0;
+	isam[2][0] = 0; isam[2][1] = 0; isam[2][2] = 0;
+	iwam[0][0] = iwa[0][0]; iwam[0][1] = iwa[0][1]; iwam[0][2] = 0;
+	iwam[1][0] = iwa[1][0]; iwam[1][1] = iwa[1][1]; iwam[1][2] = 0;
+	iwam[2][0] = 0; iwam[2][1] = 0; iwam[2][2] = 0;
+
+	getiR(iRm, iRdu, iRTdu, iwam, iwadu);
+
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			iRmT[j][i] = iRm[i][j];
+		}
+	}
+
+	getMatXMat(iRm, leu, temp01);
+	getMatXMat(temp01, iRmT, temp02);
+	for (j = 0; j < 3; j++) {
+		for (k = 0; k < 3; k++) {
+			lem[j][k] = isam[j][k] + temp02[j][k];
+		}
+	}
+
+	getMatXMat(leu, iRmT, temp03);
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				for (j = 0; j < 2; j++) {
+					ledu[m][i][k] += iRdu[m][i][j] * temp03[j][k] + temp01[i][j] * iRTdu[m][j][k];
+
+				}
+
+			}
+		}
+	}
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < 2; j++) {
+			for (k = 0; k < 2; k++) {
+				ledu[i][j][k] += isadu[i][j][k];
+			}
+		}
+	}
+
+
+	getMatXMat(iRm, ep0, temp01);
+	getMatXMat(temp01, iRmT, epm);
+	getMatXMat(ep0, iRmT, temp03);
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				for (j = 0; j < 2; j++) {
+					epdu[m][i][k] += iRdu[m][i][j] * temp03[j][k] + temp01[i][j] * iRTdu[m][j][k];
+
+				}
+
+			}
+		}
+	}
+
+
+	ch3(lem, leVm);
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < 2; j++) {
+			for (k = 0; k < 2; k++) {
+				a[j][k] = ledu[i][j][k];
+			}
+		}
+		ch(a, aV);
+		for (k = 0; k < 3; k++) {
+			leduV[i][k] = aV[k];
+		}
+	}
+	for (i = 0; i < 8; i++) {
+		leduVm[i][0] = leduV[i][0];
+		leduVm[i][1] = leduV[i][1];
+		leduVm[i][2] = 0;
+		leduVm[i][3] = leduV[i][2];
+	}
+
+	ch3(epm, epVm);
+
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < 2; j++) {
+			for (k = 0; k < 2; k++) {
+				a[j][k] = epdu[i][j][k];
+			}
+		}
+		ch(a, aV);
+		for (k = 0; k < 3; k++) {
+			epduV[i][k] = aV[k];
+		}
+	}
+	double sigdle[4][4] = { 0 };
+	double sigdep[4][4] = { 0 };
+
+	double leduVm[8][4] = { 0 };
+	for (k = 0; k < 8; k++) {
+		leduVm[k][0] = leduV[k][0];
+		leduVm[k][1] = leduV[k][1];
+		leduVm[k][2] = 0;
+		leduVm[k][3] = leduV[k][2];
+	}
+	double epduVm[8][4] = { 0 };
+	for (k = 0; k < 8; k++) {
+		epduVm[k][0] = epduV[k][0];
+		epduVm[k][1] = epduV[k][1];
+		epduVm[k][2] = 0;
+		epduVm[k][3] = epduV[k][2];
+	}
+
+	getSig2(leVm, epVm, peeq0, sigVm, ep1V, peeq1, sigdle, sigdep);
+
+
+	for (k = 0; k < 8; k++) {
+		for (j = 0; j < 4; j++) {
+			for (i = 0; i < 4; i++) {
+				sigduV[k][j] += sigdle[i][j] * leduVm[k][i] + sigdep[i][j] * epduVm[k][i];
+			}
+		}
+	}
+	chsb3(sigVm, sigm);
+
+
+	for (i = 0; i < 8; i++) {
+		chsb3(sigduV[i], sigdu[i]);
+	}
+
+
+	getJacobian2(dNN_dkk, Jac2);
+	getdul(dNN_dkk, dul);
+
+	getInverseMatrix(Jac2, inJac2);
+	//计算dulddu
+	getuldu(dulddu, dNN_dkk);
+
+	//计算Jac2du
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (j = 0; j < 2; j++) {
+				Jac2du[m][i][j] = uldu[m][i][j];
+
+			}
+		}
+	}
+
+	//计算雅可比行列式
+	detJac2 = determinant(Jac2);
+
+	divM(inJac2, IJac2dJac2);
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (j = 0; j < 2; j++) {
+				for (k = 0; k < 2; k++) {
+					for (n = 0; n < 2; n++) {
+						IJac2du[m][i][j] += IJac2dJac2[k][n][i][j] * Jac2du[m][k][n];
+
+					}
+				}
+			}
+		}
+	}
+
+	transposeMatrix(inJac2, inJac2T);
+	//计算行列式的导数
+
+	for (i = 0; i < 2; i++) {
+		for (j = 0; j < 2; j++) {
+			detJac2dJac2[i][j] = detJac2 * inJac2T[i][j];
+
+		}
+	}
+	for (n = 0; n < 8; n++) {
+		for (i = 0; i < 2; i++) {
+			for (j = 0; j < 2; j++) {
+				detJac2du[n] += detJac2dJac2[i][j] * Jac2du[n][i][j];
+			}
+		}
+	}
+
+
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				for (j = 0; j < 2; j++) {
+					duxddu[m][i][k] += dulddu[m][i][j] * inJac2[j][k];
+				}
+			}
+		}
+	}
+	for (m = 0; m < 8; m++) {
+		for (n = 0; n < 8; n++) {
+			for (i = 0; i < 2; i++) {
+				for (k = 0; k < 2; k++) {
+					for (j = 0; j < 2; j++) {
+						duxduddu[m][n][i][k] += dulddu[n][i][j] * IJac2du[m][j][k];
+					}
+				}
+			}
+		}
+	}
+
+
+	for (m = 0; m < 8; m++) {
+		for (i = 0; i < 2; i++) {
+			for (k = 0; k < 2; k++) {
+				duxisddu[m][i][k] = 0.5 * (duxddu[m][i][k] + duxddu[m][k][i]);
+
+			}
+		}
+
+	}
+	for (m = 0; m < 8; m++) {
+		for (n = 0; n < 8; n++) {
+			for (i = 0; i < 2; i++) {
+				for (j = 0; j < 2; j++) {
+					duxisduddu[m][n][i][j] = 0.5 * (duxduddu[m][n][i][j] + duxduddu[m][n][j][i]);
+				}
+			}
+		}
+	}
+
+
+	for (i = 0; i < 8; i++) {
+		for (j = 0; j < 2; j++) {
+			for (k = 0; k < 2; k++) {
+				virwork[i] += detJac2 * duxisddu[i][j][k] * sigm[j][k];
+			}
+		}
+	}
+
+
+	for (m = 0; m < 8; m++) {
+		for (n = 0; n < 8; n++) {
+			for (i = 0; i < 2; i++) {
+				for (j = 0; j < 2; j++) {
+					dvirwork[m][n] += detJac2 * duxisddu[n][i][j] * sigdu[m][i][j];
+					dvirwork[m][n] += detJac2 * duxisduddu[m][n][i][j] * sigm[i][j];
+					dvirwork[m][n] += detJac2du[m] * duxisddu[n][i][j] * sigm[i][j];
+				}
+			}
+		}
+	}
+
+}
+
+double kk[2] = { 0 };
+double Subsq[4][2] = { 0 };
+double Fint0[4][8] = { 0 };
+double KK0[4][8][8] = { 0 };
+double le0[4][3][3] = { 0 };
+double sig0[4][3][3] = { 0 };
+double ep1V0[4][4] = { 0 };
+double peeq10[4] = { 0 };
+double De[4][4] = { 0 };
+double NN0[4][4] = { 0 };
+double dNN_dkk0[4][4][2] = { 0 };
+double Jac0[4][2][2] = { 0 };
+double ul0[4][2][2] = { 0 };
+double detJac[4] = { 0 };
+double uldu0[4][8][2][2] = { 0 };
+double inJac0[4][2][2] = { 0 };
+double isl0[4][2][2] = { 0 };
+double islT0[4][2][2] = { 0 };
+double is0[4][2][2] = { 0 };
+double iw0[4][2][2] = { 0 };
+double isldu0[4][8][2][2] = { 0 };
+double isdu0[4][8][2][2] = { 0 };
+double iwdu0[4][8][2][2] = { 0 };
+double detJacdu0[4][8] = { 0 };
+double gaussDA = 0;
+double gaussdAdu[8] = { 0 };
+double gaussudpA1 = 0;
+double gaussudpA1w = 0;
+double gaussudpdA[8] = { 0 };
+double gaussudpdAw[8] = { 0 };
+
+double le[3][3] = { 0 };
+double sig[3][3] = { 0 };
+double ep1V[4] = { 0 };
+double peeq1 = 0;
+double Fint[8] = { 0 };
+double KK[8][8] = { 0 };
+
+double leu[3][3] = { 0 };
+double ep0[3][3] = { 0 };
+double peeq0 = 0;
+
+void test1()
+{
+	getSubsq(Subsq);
+	getDe(De);
+
+	gaussIntegrateDA(gaussDA, gaussudpA1, gaussudpdA, gaussdAdu, gaussudpA1w, gaussudpdAw, NN0, dNN_dkk0, Jac0, ul0, detJac, uldu0, inJac0, isl0, islT0, is0, iw0, isldu0, isdu0, iwdu0, detJacdu0);
+
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 2; j++)
+		{
+			kk[j] = Subsq[i][j];
+		}
+
+		CPE4(le0[i], sig0[i], peeq0, ep1V0[i], peeq10[i], leu, ep0, De, xyz0, uvw0, kk, Fint0[i], KK0[i], gaussDA, gaussdAdu, gaussudpA1, gaussudpdA, gaussudpA1w, gaussudpdAw, NN0[i], dNN_dkk0[i], Jac0[i], ul0[i], detJac[i], uldu0[i], inJac0[i], isl0[i], islT0[i], is0[i], iw0[i], isldu0[i], isdu0[i], iwdu0[i], detJacdu0[i]);
+	}
+	for (i = 0; i < 4; i++)
+	{
+		for (m = 0; m < 3; m++)
+		{
+			for (n = 0; n < 3; n++)
+			{
+				le[m][n] += le0[i][m][n];
+				sig[m][n] += sig0[i][m][n];
+			}
+		}
+		for (j = 0; j < 8; j++)
+		{
+			Fint[j] += Fint0[i][j];
+			for (k = 0; k < 8; k++)
+			{
+				KK[j][k] += KK0[i][j][k];
+			}
+		}
+		peeq1 += peeq10[i];
+	}
+	for (m = 0; m < 4; m++)
+	{
+		for (n = 0; n < 4; n++)
+		{
+			ep1V[n] += ep1V0[m][n];
+		}
+	}
+	printf("\nle=\n");
+	for (j = 0; j < 3; j++) {
+		for (k = 0; k < 3; k++) {
+			printf("%7.6f\t", le[j][k]);
+			if ((k + 1) % 3 == 0) {
+				printf("\n");
+			}
+		}
+		printf("\n");
+	}
+	printf("\nsig=\n");
+	for (j = 0; j < 3; j++) {
+		for (k = 0; k < 3; k++) {
+			printf("%7.6f\t", sig[j][k]);
+			if ((k + 1) % 3 == 0) {
+				printf("\n");
+			}
+		}
+		printf("\n");
+	}
+	printf("Fint=\n");
+	for (int k = 0; k < 8; k++) {
+		printf("%7.2f\t", Fint[k]);
+		if ((k + 1) % 4 == 0) {
+			printf("\n");
+		}
+
+	}
+	printf("\nKK=\n");
+	for (int j = 0; j < 8; j++) {
+		for (int k = 0; k < 8; k++) {
+			printf("%7.2f\t", KK[j][k]);
+			if ((k + 1) % 4 == 0) {
+				printf("\n");
+			}
+		}
+		printf("\n");
+	}
+	printf("epV=\n");
+	for (k = 0; k < 4; k++) {
+		printf("%7.6f\t", ep1V[k]);
+	}
+	printf("\n");
+	printf("peeq=   ");
+	printf("%7.6f\t", peeq1);
+	printf("\n");
+}
+
+int main()
+{
+	test1();
+
+	return 0;
+}
+
+
