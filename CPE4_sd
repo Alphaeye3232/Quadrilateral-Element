@@ -1,0 +1,95 @@
+Clear["`*"];
+xy0={{0, 1.3}, {0,0}, {1,0}, {1, 1}};
+lc = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+uv0 = {{0, 0}, {1, 0}, {0, 0}, {0, 0}};
+
+uv = Table[{u[i], v[i]}, {i, 4}];
+duv = Table[{du[i], dv[i]}, {i, 4}];
+
+E0 = 3*10^3;
+mu = 0.3;
+
+subsu = Flatten[Table[uv[[i, j]]->uv0[[i, j]], {i, 4}, {j, 2}]];
+Do[NN[i] = (1 + lc[[i, 1]]*kk[1])*(1 + lc[[i, 2]]*kk[2])/4, {i, 4}];
+
+gaussIntegrate[f_] := Module[{}, 
+  gaussPoint = {{kk[1]->0.577350, kk[2]->0.577350}, {kk[1]->-0.577350, kk[2]->0.577350}, 
+    {kk[1]->-0.577350, kk[2]->-0.577350}, {kk[1]->0.577350, kk[2]->-0.577350}};
+  integrate = Sum[(f /. gaussPoint[[i]]), {i, 4}];
+  Return[integrate];
+  ]
+
+
+(*(在全域上求平均球应变张量进行调整)*)
+cpe4Adjust[strain_, dA_] := Module[{}, 
+  devStrain = strain - Tr[strain] / 2 * IdentityMatrix[2];
+  udp =  Tr[strain] / 2;
+  udpA = gaussIntegrate[udp * dA] / gaussIntegrate[dA];
+  newStrain = devStrain + udpA * IdentityMatrix[2];
+  Return[newStrain];
+  ]
+
+checkGaussPoint[strain_] := Module[{}, 
+  gaussPoint = {{kk[1]->0.577350, kk[2]->0.577350}, {kk[1]->-0.577350, kk[2]->0.577350}, 
+    {kk[1]->-0.577350, kk[2]->-0.577350}, {kk[1]->0.577350, kk[2]->-0.577350}};
+  Print[Table[strain[[1, 1]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  Print[2 * Table[strain[[1, 2]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  Print[Table[strain[[2, 2]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  ]
+checkGaussPointSig[stress_] := Module[{}, 
+  gaussPoint = {{kk[1]->0.577350, kk[2]->0.577350}, {kk[1]->-0.577350, kk[2]->0.577350}, 
+    {kk[1]->-0.577350, kk[2]->-0.577350}, {kk[1]->0.577350, kk[2]->-0.577350}};
+  Print[Table[stress[[1, 1]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  Print[ Table[stress[[1, 2]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  Print[Table[stress[[2, 2]] /. Flatten[{gaussPoint[[i]], subsu}], {i, 4}]];
+  ]
+
+constiRelation[strain_] :=Module[{}, 
+   strainVector = {strain[[1, 1]], strain[[2, 2]], 2*strain[[1, 2]]};
+   
+   Dmatrix = E0/(1 + mu)/(1 - 2*mu)*{{1 - mu, mu, 0}, {mu, 1 - mu, 0}, {0, 0, (1 - 2*mu)/2}};
+   stressVector = Dmatrix.Transpose[{strainVector}];
+   stress = {{stressVector[[1, 1]], stressVector[[3, 1]]}, {stressVector[[3, 1]], stressVector[[2, 1]]}};
+   Return[stress];
+   ];
+
+
+c2d4[xy0_, uv0_] := Module[{}, 
+  X = Sum[xy0[[i]]*NN[i], {i, 4}];
+  U = Sum[uv[[i]]*NN[i], {i, 4}];
+  dU = Sum[duv[[i]]*NN[i], {i, 4}];
+  Xl = Table[D[X[[i]], kk[j]], {i, 2}, {j, 2}];
+  ul = Table[D[U[[i]], kk[j]], {i, 2}, {j, 2}];
+  ux = ul.Inverse[Xl];
+  ud = (ux + Transpose[ux]) / 2;
+  
+  ud = cpe4Adjust[ud, Det[Xl]];
+  
+  Print["ud_point="];
+  checkGaussPoint[ud];
+  
+  udu= Table[gaussIntegrate[ud[[i,j]]], {i, 2},{j, 2}];
+  Print["ud=",udu/.subsu];
+  
+  sig= constiRelation[ud];
+  
+  sigdu = Table[D[sig, Flatten[uv][[i]]], {i, 8}];
+  sig = sig /. subsu;
+  
+  Print["sig_point="];
+  checkGaussPointSig[sig];
+  sigu=Table[gaussIntegrate[sig[[i,j]]], {i, 2},{j, 2}];
+  Print["sig=",sigu];
+  
+  
+  dud = Sum[D[ud, Flatten[uv][[i]]]*Flatten[duv][[i]], {i, 8}];
+  ndud = Table[D[dud, Flatten[duv][[i]]], {i, 8}];
+  dvirwork = Table[Det[Xl]*Sum[ndud[[n, i, j]]*sig[[i, j]], {i, 2}, {j, 2}], {n, 8}];
+  ddvirwork = Table[Det[Xl]* Sum[ndud[[n, i, j]]* sigdu[[m, i, j]], {i, 2}, {j, 2}], {n, 8}, {m, 8}];
+  Fint = Table[gaussIntegrate[dvirwork[[i]]], {i, 8}];
+  K = Table[gaussIntegrate[ddvirwork[[i]]], {i, 8}];
+  Return[{Fint, K}];
+  ]
+element = c2d4[xy0, uv0];
+Print[MatrixForm[element[[1]]]];
+Print[MatrixForm[element[[2]]]];
